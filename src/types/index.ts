@@ -189,9 +189,12 @@ export type RootStackParamList = {
   VetProfile: { veterinarianId: string };
   VetProfileSetup: { userId: string };
   VetProfileEdit: { veterinarianId: string };
-  VetList: undefined;
+  VetList: { bookingMode?: boolean } | undefined;
+  AdvancedSearch: undefined;
   ClinicDetails: { clinicId: string };
   BookAppointment: { veterinarianId: string; clinicId: string };
+  RescheduleAppointment: { appointmentId: string };
+  EmergencyCare: undefined;
   PetProfile: { petId?: string };
   AppointmentDetails: { appointmentId: string };
 };

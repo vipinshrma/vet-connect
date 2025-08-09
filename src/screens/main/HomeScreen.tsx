@@ -149,15 +149,15 @@ const HomeScreen: React.FC<HomeScreenProps> = () => {
           title: "Emergency Care",
           description: "24/7 emergency veterinary services",
           iconName: "phone",
-          onPress: undefined,
-          isComingSoon: true
+          onPress: () => navigation?.navigate('EmergencyCare'),
+          isComingSoon: false
         },
         {
           title: "Book Appointment",
           description: "Schedule your pet's next visit",
           iconName: "calendar",
-          onPress: undefined,
-          isComingSoon: true
+          onPress: () => navigation?.navigate('VetList', { bookingMode: true }),
+          isComingSoon: false
         }
       ];
     }

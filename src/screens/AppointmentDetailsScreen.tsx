@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Easing, Image, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import { cancelAppointment } from '../store/slices/appointmentSlice';
 import { Appointment, RootStackParamList } from '../types';
 
 type AppointmentDetailsScreenRouteProp = RouteProp<RootStackParamList, 'AppointmentDetails'>;
+type AppointmentDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface Props {
   route: AppointmentDetailsScreenRouteProp;
@@ -17,6 +19,7 @@ interface Props {
 
 const AppointmentDetailsScreen: React.FC<Props> = ({ route }) => {
   const { appointmentId } = route.params;
+  const navigation = useNavigation<AppointmentDetailsNavigationProp>();
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -298,14 +301,15 @@ const AppointmentDetailsScreen: React.FC<Props> = ({ route }) => {
               </View>
             </View>
             <View className="flex-1">
-              <View className="rounded-xl overflow-hidden opacity-60">
+              <View className="rounded-xl overflow-hidden">
                 <Text
-                  className="text-center bg-gray-100 text-gray-500 py-3 text-base font-medium"
+                  onPress={() => navigation.navigate('RescheduleAppointment', { appointmentId: appointment.id })}
+                  className="text-center bg-blue-600 text-white py-3 text-base font-medium"
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: true }}
-                  accessibilityHint="Rescheduling will be available soon"
+                  accessibilityLabel="Reschedule appointment"
+                  accessibilityHint="Double tap to reschedule this appointment"
                 >
-                  Reschedule (Soon)
+                  Reschedule
                 </Text>
               </View>
             </View>

@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  StyleSheet,
-  Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList, Pet, Veterinarian, Clinic, TimeSlot } from '../types';
-import { supabaseVetService } from '../services/supabaseVetService';
-import { supabaseClinicService } from '../services/supabaseClinicService';
-import { supabaseAppointmentService } from '../services/supabaseAppointmentService';
-import { supabasePetService } from '../services/supabasePetService';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
+import { supabaseAppointmentService } from '../services/supabaseAppointmentService';
+import { supabaseClinicService } from '../services/supabaseClinicService';
+import { supabasePetService } from '../services/supabasePetService';
+import { supabaseVetService } from '../services/supabaseVetService';
+import { Clinic, Pet, RootStackParamList, TimeSlot, Veterinarian } from '../types';
 
 type BookAppointmentScreenRouteProp = RouteProp<RootStackParamList, 'BookAppointment'>;
 type BookAppointmentNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -202,6 +202,7 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
       // Check if time slot is still available
       const isAvailable = await supabaseAppointmentService.isTimeSlotAvailable(
         veterinarianId,
+        selectedDate.toISOString().split('T')[0],
         selectedTimeSlot.startTime,
         selectedTimeSlot.endTime
       );
@@ -220,8 +221,7 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
       // Create the appointment
       const appointmentData = {
         pet_id: selectedPet.id,
-        appointment_date: selectedDate,
-        appointment_time: selectedTimeSlot.id,
+        appointment_date: selectedDate.toISOString().split('T')[0], // Convert Date to string
         reason: appointmentReason,
         notes: appointmentNotes || undefined,
         veterinarian_id: veterinarianId,

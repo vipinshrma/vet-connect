@@ -70,8 +70,8 @@ export class SupabaseVetService {
       reviewCount: row.review_count,
       clinic_id: row.clinic_id || '',
       availableSlots: this.generateTimeSlots(), // In real app, fetch from schedule table
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -224,14 +224,23 @@ export class SupabaseVetService {
     }
   }
 
-  // Search veterinarians
+  // Search veterinarians by name, specialty, or clinic
   async searchVeterinarians(query: string): Promise<Veterinarian[]> {
     try {
+      if (!query.trim()) {
+        return [];
+      }
+
+      const searchQuery = query.trim().toLowerCase();
+      
+      // First, let's get all veterinarians and filter client-side for now
+      // This is more reliable than complex Supabase queries
       const { data, error } = await supabase
         .from('veterinarians')
         .select(`
           *,
-          profiles!inner(name)
+          profiles!inner(*),
+          clinics(*)
         `)
         .order('rating', { ascending: false });
 
@@ -240,9 +249,93 @@ export class SupabaseVetService {
         throw new Error(`Failed to search veterinarians: ${error.message}`);
       }
 
-      return (data || []).map(row => this.mapToVeterinarian(row));
+      const allVeterinarians = (data || []).map(row => this.mapToVeterinarian(row));
+      
+      // Client-side filtering for search
+      const filteredVeterinarians = allVeterinarians.filter(vet => {
+        // Search by name (case-insensitive)
+        const nameMatch = vet.name.toLowerCase().includes(searchQuery);
+        
+        // Search by specialty (case-insensitive)
+        const specialtyMatch = vet.specialties.some(specialty => 
+          specialty.toLowerCase().includes(searchQuery)
+        );
+        
+        return nameMatch || specialtyMatch;
+      });
+
+      return filteredVeterinarians;
     } catch (error) {
       console.error('Error in searchVeterinarians:', error);
+      throw error;
+    }
+  }
+
+  // Advanced search with filters
+  async advancedSearchVeterinarians(filters: {
+    query?: string;
+    specialty?: string;
+    location?: { lat: number; lng: number; radius: number };
+    rating?: number;
+    experience?: number;
+  }): Promise<Veterinarian[]> {
+    try {
+      let supabaseQuery = supabase
+        .from('veterinarians')
+        .select(`
+          *,
+          profiles!inner(*),
+          clinics(*)
+        `);
+
+      // Apply database-level filters that are safe
+      if (filters.rating) {
+        supabaseQuery = supabaseQuery.gte('rating', filters.rating);
+      }
+
+      if (filters.experience) {
+        supabaseQuery = supabaseQuery.gte('experience', filters.experience);
+      }
+
+      const { data, error } = await supabaseQuery.order('rating', { ascending: false });
+
+      if (error) {
+        console.error('Error in advanced search:', error);
+        throw new Error(`Failed to search veterinarians: ${error.message}`);
+      }
+
+      let results = (data || []).map(row => this.mapToVeterinarian(row));
+
+      // Apply client-side filters for complex searches
+      if (filters.query?.trim()) {
+        const searchQuery = filters.query.trim().toLowerCase();
+        results = results.filter(vet => {
+          const nameMatch = vet.name.toLowerCase().includes(searchQuery);
+          const specialtyMatch = vet.specialties.some(specialty => 
+            specialty.toLowerCase().includes(searchQuery)
+          );
+          return nameMatch || specialtyMatch;
+        });
+      }
+
+      if (filters.specialty) {
+        results = results.filter(vet => 
+          vet.specialties.includes(filters.specialty!)
+        );
+      }
+
+      // Client-side location filtering (since PostGIS might not be available)
+      if (filters.location) {
+        results = results.filter(() => {
+          // This would require clinic location data
+          // For now, we'll skip location filtering in Supabase and do it client-side
+          return true;
+        });
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Error in advancedSearchVeterinarians:', error);
       throw error;
     }
   }

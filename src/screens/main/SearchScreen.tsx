@@ -19,6 +19,7 @@ import { Veterinarian, Clinic, RootStackParamList } from '../../types';
 import { mockVeterinarians, getVeterinariansBySpecialty, getEmergencyVeterinarians, getTopRatedVeterinarians } from '../../data/mockVeterinarians';
 import { mockClinics } from '../../data/mockClinics';
 import { supabase } from '../../config/supabase';
+import { supabaseVetService } from '../../services/supabaseVetService';
 import { AppDispatch } from '../../store';
 import { logoutUser } from '../../store/slices/authSlice';
 
@@ -43,9 +44,12 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
   const [searchResults, setSearchResults] = useState<Veterinarian[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [topRatedVets, setTopRatedVets] = useState<Veterinarian[]>([]);
+  const [topRatedLoading, setTopRatedLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
+    loadTopRatedVets();
   }, []);
 
   const checkAuth = async () => {
@@ -70,6 +74,28 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
       await dispatch(logoutUser()).unwrap();
     } catch (error: any) {
       console.error('Logout error:', error);
+    }
+  };
+
+  const loadTopRatedVets = async () => {
+    setTopRatedLoading(true);
+    try {
+      console.log('Loading top-rated veterinarians from Supabase...');
+      const vets = await supabaseVetService.getTopRatedVeterinarians(3);
+      
+      if (vets.length === 0) {
+        console.log('No top-rated vets found in database, using mock data as fallback');
+        setTopRatedVets(getTopRatedVeterinarians(3));
+      } else {
+        console.log(`Loaded ${vets.length} top-rated veterinarians from Supabase database`);
+        setTopRatedVets(vets);
+      }
+    } catch (error) {
+      console.error('Error loading top-rated veterinarians from Supabase:', error);
+      console.log('Using mock data as fallback due to error');
+      setTopRatedVets(getTopRatedVeterinarians(3));
+    } finally {
+      setTopRatedLoading(false);
     }
   };
 
@@ -127,31 +153,38 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
 
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log('Searching veterinarians for query:', searchQuery);
+      
+      // Try searching with Supabase first
+      let results = await supabaseVetService.searchVeterinarians(searchQuery);
+      
+      // If no results from database, fall back to mock data
+      if (results.length === 0) {
+        console.log('No results from Supabase, using mock data as fallback');
+        
+        // Search by name in mock data
+        const nameResults = mockVeterinarians.filter(vet =>
+          vet.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
-      let results: Veterinarian[] = [];
+        // Search by specialty in mock data
+        const specialtyResults = mockVeterinarians.filter(vet =>
+          vet.specialties.some(specialty =>
+            specialty.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        );
 
-      // Search by name
-      const nameResults = mockVeterinarians.filter(vet =>
-        vet.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        // Combine and deduplicate results
+        const combinedResults = [...nameResults, ...specialtyResults];
+        results = combinedResults.filter((vet, index) =>
+          combinedResults.findIndex(v => v.id === vet.id) === index
+        );
 
-      // Search by specialty
-      const specialtyResults = mockVeterinarians.filter(vet =>
-        vet.specialties.some(specialty =>
-          specialty.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-
-      // Combine and deduplicate results
-      const combinedResults = [...nameResults, ...specialtyResults];
-      results = combinedResults.filter((vet, index) =>
-        combinedResults.findIndex(v => v.id === vet.id) === index
-      );
-
-      // Sort by rating
-      results.sort((a, b) => b.rating - a.rating);
+        // Sort by rating
+        results.sort((a, b) => b.rating - a.rating);
+      } else {
+        console.log(`Found ${results.length} veterinarians from Supabase database`);
+      }
 
       setSearchResults(results);
       setShowResults(true);
@@ -161,34 +194,117 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
         setRecentSearches(prev => [searchQuery, ...prev.slice(0, 4)]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to search. Please try again.');
+      console.error('Error searching veterinarians:', error);
+      console.log('Using mock data as fallback due to error');
+      
+      // Fallback to mock data search on error
+      const nameResults = mockVeterinarians.filter(vet =>
+        vet.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      const specialtyResults = mockVeterinarians.filter(vet =>
+        vet.specialties.some(specialty =>
+          specialty.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+      const combinedResults = [...nameResults, ...specialtyResults];
+      const results = combinedResults.filter((vet, index) =>
+        combinedResults.findIndex(v => v.id === vet.id) === index
+      );
+      results.sort((a, b) => b.rating - a.rating);
+      
+      setSearchResults(results);
+      setShowResults(true);
+      
+      Alert.alert('Search Notice', 'Using offline data. Please check your connection for latest results.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickFilter = (specialty: string) => {
-    let results: Veterinarian[] = [];
+  const handleQuickFilter = async (specialty: string) => {
+    setLoading(true);
+    try {
+      console.log('Filtering by specialty:', specialty);
+      
+      let results: Veterinarian[] = [];
 
-    switch (specialty) {
-      case 'emergency':
-        results = getEmergencyVeterinarians();
-        break;
-      default:
-        results = getVeterinariansBySpecialty(specialty);
-        break;
+      if (specialty === 'emergency') {
+        // Use Supabase emergency vets method
+        results = await supabaseVetService.getEmergencyVeterinarians();
+        
+        // Fallback to mock data if no results
+        if (results.length === 0) {
+          console.log('No emergency vets from Supabase, using mock data');
+          results = getEmergencyVeterinarians();
+        }
+      } else {
+        // Use Supabase specialty search
+        results = await supabaseVetService.getVeterinariansBySpecialty(specialty);
+        
+        // Fallback to mock data if no results
+        if (results.length === 0) {
+          console.log(`No ${specialty} vets from Supabase, using mock data`);
+          results = getVeterinariansBySpecialty(specialty);
+        }
+      }
+
+      console.log(`Found ${results.length} veterinarians for ${specialty}`);
+      
+      setSearchResults(results);
+      setShowResults(true);
+      setSearchQuery(specialty.charAt(0).toUpperCase() + specialty.slice(1));
+    } catch (error) {
+      console.error('Error filtering by specialty:', error);
+      
+      // Fallback to mock data on error
+      let results: Veterinarian[] = [];
+      switch (specialty) {
+        case 'emergency':
+          results = getEmergencyVeterinarians();
+          break;
+        default:
+          results = getVeterinariansBySpecialty(specialty);
+          break;
+      }
+      
+      setSearchResults(results);
+      setShowResults(true);
+      setSearchQuery(specialty.charAt(0).toUpperCase() + specialty.slice(1));
+    } finally {
+      setLoading(false);
     }
-
-    setSearchResults(results);
-    setShowResults(true);
-    setSearchQuery(specialty.charAt(0).toUpperCase() + specialty.slice(1));
   };
 
-  const handleSpecialtyPress = (specialty: string) => {
-    const results = getVeterinariansBySpecialty(specialty);
-    setSearchResults(results);
-    setShowResults(true);
-    setSearchQuery(specialty);
+  const handleSpecialtyPress = async (specialty: string) => {
+    setLoading(true);
+    try {
+      console.log('Searching by specialty:', specialty);
+      
+      // Use Supabase specialty search
+      let results = await supabaseVetService.getVeterinariansBySpecialty(specialty);
+      
+      // Fallback to mock data if no results
+      if (results.length === 0) {
+        console.log(`No ${specialty} vets from Supabase, using mock data`);
+        results = getVeterinariansBySpecialty(specialty);
+      }
+
+      console.log(`Found ${results.length} veterinarians for ${specialty} specialty`);
+      
+      setSearchResults(results);
+      setShowResults(true);
+      setSearchQuery(specialty);
+    } catch (error) {
+      console.error('Error searching by specialty:', error);
+      
+      // Fallback to mock data on error
+      const results = getVeterinariansBySpecialty(specialty);
+      setSearchResults(results);
+      setShowResults(true);
+      setSearchQuery(specialty);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRecentSearch = (query: string) => {
@@ -296,9 +412,18 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View className="px-4 py-6">
-        <Text className="text-2xl font-bold text-gray-900 mb-2">
-          Find the Perfect Vet
-        </Text>
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-2xl font-bold text-gray-900">
+            Find the Perfect Vet
+          </Text>
+          <TouchableOpacity 
+            onPress={() => navigation?.navigate('AdvancedSearch')}
+            className="bg-blue-50 px-3 py-2 rounded-lg flex-row items-center"
+          >
+            <Ionicons name="options" size={16} color="#3b82f6" />
+            <Text className="text-blue-600 font-medium ml-1">Advanced</Text>
+          </TouchableOpacity>
+        </View>
         <Text className="text-gray-600">
           Search by specialty, name, or browse featured services
         </Text>
@@ -399,29 +524,36 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
             <Text className="text-lg font-semibold text-gray-900">
               Top Rated Vets
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation?.navigate('VetList')}>
               <Text className="text-blue-600 font-medium">View All</Text>
             </TouchableOpacity>
           </View>
           
-          {getTopRatedVeterinarians(3).map((vet, index) => {
-            const clinic = mockClinics.find(c => c.id === vet.clinic_id);
-            const distance = calculateDistance(vet.id);
-            
-            return (
-              <VetCard
-                key={vet.id}
-                veterinarian={vet}
-                clinic={clinic}
-                distance={distance}
-                onPress={() => navigation?.navigate('VetProfile', { veterinarianId: vet.id })}
-                onBookAppointment={() => navigation?.navigate('BookAppointment', {
-                  veterinarianId: vet.id,
-                  clinicId: vet.clinic_id
-                })}
-              />
-            );
-          })}
+          {topRatedLoading ? (
+            <View className="flex items-center justify-center py-8">
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text className="text-gray-600 mt-2">Loading top-rated vets...</Text>
+            </View>
+          ) : (
+            topRatedVets.map((vet) => {
+              const clinic = mockClinics.find(c => c.id === vet.clinic_id);
+              const distance = calculateDistance(vet.id);
+              
+              return (
+                <VetCard
+                  key={vet.id}
+                  veterinarian={vet}
+                  clinic={clinic}
+                  distance={distance}
+                  onPress={() => navigation?.navigate('VetProfile', { veterinarianId: vet.id })}
+                  onBookAppointment={() => navigation?.navigate('BookAppointment', {
+                    veterinarianId: vet.id,
+                    clinicId: vet.clinic_id
+                  })}
+                />
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

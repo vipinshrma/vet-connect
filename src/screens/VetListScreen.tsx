@@ -17,6 +17,7 @@ import VetCard from '../components/VetCard';
 import { Veterinarian, Clinic, SearchFilters, UserLocation } from '../types';
 import { supabaseVetService } from '../services/supabaseVetService';
 import { supabaseClinicService } from '../services/supabaseClinicService';
+import { mockVeterinarians, mockClinics } from '../data';
 
 interface VetListScreenProps {
   navigation: any;
@@ -87,16 +88,18 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
     try {
       const allVets = await supabaseVetService.getAllVeterinarians();
       
-      if (reset) {
-        setVeterinarians(allVets);
+      // If database is empty, use mock data as fallback
+      if (allVets.length === 0) {
+        console.log('Database is empty, using mock data as fallback');
+        setVeterinarians(mockVeterinarians);
       } else {
+        console.log(`Loaded ${allVets.length} veterinarians from Supabase database`);
         setVeterinarians(allVets);
       }
-      
-      // All vets loaded at once from Supabase
     } catch (error) {
-      console.error('Error loading veterinarians:', error);
-      Alert.alert('Error', 'Failed to load veterinarians. Please try again.');
+      console.error('Error loading veterinarians from Supabase:', error);
+      console.log('Using mock data as fallback due to error');
+      setVeterinarians(mockVeterinarians);
     } finally {
       setLoading(false);
     }
@@ -257,7 +260,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
   };
 
   const renderVetCard = ({ item }: { item: Veterinarian }) => {
-    const clinic = clinics[item.clinicId];
+    const clinic = clinics[item.clinic_id];
     const distance = userLocation ? calculateDistance() : undefined;
 
     return (
@@ -268,7 +271,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
         onPress={() => navigation.navigate('VetProfile', { veterinarianId: item.id })}
         onBookAppointment={() => navigation.navigate('BookAppointment', {
           veterinarianId: item.id,
-          clinicId: item.clinicId
+          clinicId: item.clinic_id
         })}
       />
     );

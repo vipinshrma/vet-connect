@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { Appointment, AppointmentForm } from '../types';
+import { Appointment } from '../types';
 import { Database } from './supabaseTypes';
 
 type AppointmentRow = Database['public']['Tables']['appointments']['Row'];
@@ -88,26 +88,28 @@ export class SupabaseAppointmentService {
   }
 
   // Create a new appointment
-  async createAppointment(appointmentData: AppointmentForm & {
-    veterinarianId: string;
-    clinicId: string;
-    ownerId: string;
-    startTime: string;
-    endTime: string;
+  async createAppointment(appointmentData: {
+    pet_id: string;
+    appointment_date: string;
+    reason: string;
+    notes?: string;
+    veterinarian_id: string;
+    clinic_id: string;
+    owner_id: string;
+    start_time: string;
+    end_time: string;
   }): Promise<Appointment> {
     try {
-      const insertData: any = {
-        ...appointmentData,
-        // pet_id: appointmentData.petId,
-        // veterinarian_id: appointmentData.veterinarianId,
-        // clinic_id: appointmentData.clinicId,
-        // owner_id: appointmentData.ownerId,
-        // appointment_date:appointmentData?.
-        // // appointment_date: appointmentData.date.toISOString().split('T')[0], // Convert to YYYY-MM-DD
-        // start_time: appointmentData.startTime,
-        // end_time: appointmentData.endTime,
-        // reason: appointmentData.reason,
-        // notes: appointmentData.notes || null,
+      const insertData: AppointmentInsert = {
+        pet_id: appointmentData.pet_id,
+        veterinarian_id: appointmentData.veterinarian_id,
+        clinic_id: appointmentData.clinic_id,
+        owner_id: appointmentData.owner_id,
+        appointment_date: appointmentData.appointment_date,
+        start_time: appointmentData.start_time,
+        end_time: appointmentData.end_time,
+        reason: appointmentData.reason,
+        notes: appointmentData.notes || null,
         status: 'scheduled',
       };
 
@@ -424,7 +426,7 @@ export class SupabaseAppointmentService {
   // Check if a time slot is available
   async isTimeSlotAvailable(
     veterinarianId: string,
-    // date: string,
+    date: string,
     startTime: string,
     endTime: string
   ): Promise<boolean> {
@@ -433,11 +435,9 @@ export class SupabaseAppointmentService {
         .from('appointments')
         .select('id')
         .eq('veterinarian_id', veterinarianId)
-        // .eq('appointment_date', date)
+        .eq('appointment_date', date)
         .not('status', 'eq', 'cancelled')
-        .or(`start_time.lte.${startTime},end_time.gte.${endTime}`)
-        .or(`start_time.gte.${startTime},start_time.lt.${endTime}`)
-        .or(`end_time.gt.${startTime},end_time.lte.${endTime}`);
+        .or(`and(start_time.lte.${startTime},end_time.gt.${startTime}),and(start_time.lt.${endTime},end_time.gte.${endTime}),and(start_time.gte.${startTime},start_time.lt.${endTime})`);
 
       if (error) {
         console.error('Error checking time slot availability:', error);
@@ -450,6 +450,7 @@ export class SupabaseAppointmentService {
       throw error;
     }
   }
+
 
   // Get appointments for a specific date
   async getAppointmentsByDate(date: string, userId?: string): Promise<Appointment[]> {

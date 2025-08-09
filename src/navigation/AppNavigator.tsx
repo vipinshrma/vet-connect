@@ -13,8 +13,11 @@ import VetProfileScreen from '../screens/VetProfileScreen';
 import VetProfileSetupScreen from '../screens/VetProfileSetupScreen';
 import VetProfileEditScreen from '../screens/VetProfileEditScreen';
 import VetListScreen from '../screens/VetListScreen';
+import AdvancedSearchScreen from '../screens/AdvancedSearchScreen';
 import ClinicDetailsScreen from '../screens/ClinicDetailsScreen';
 import BookAppointmentScreen from '../screens/BookAppointmentScreen';
+import RescheduleAppointmentScreen from '../screens/RescheduleAppointmentScreen';
+import EmergencyCareScreen from '../screens/EmergencyCareScreen';
 import PetProfileScreen from '../screens/PetProfileScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import LoadingScreen from '../components/LoadingScreen';
@@ -72,6 +75,11 @@ const AppNavigator: React.FC = () => {
             options={{ headerShown: false }}
           />
           <Stack.Screen 
+            name="AdvancedSearch" 
+            component={AdvancedSearchScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
             name="ClinicDetails" 
             component={ClinicDetailsScreen}
             options={{ headerShown: true, title: 'Clinic Details' }}
@@ -80,6 +88,16 @@ const AppNavigator: React.FC = () => {
             name="BookAppointment" 
             component={BookAppointmentScreen}
             options={{ headerShown: true, title: 'Book Appointment' }}
+          />
+          <Stack.Screen 
+            name="RescheduleAppointment" 
+            component={RescheduleAppointmentScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="EmergencyCare" 
+            component={EmergencyCareScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen 
             name="PetProfile" 

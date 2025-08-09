@@ -289,6 +289,41 @@ class VetService {
       nextAvailable: isOpen ? undefined : 'Tomorrow 8:00 AM'
     };
   }
+
+  /**
+   * Get emergency clinics within specified radius
+   */
+  async getEmergencyClinics(location?: LocationCoordinates, radius: number = 25): Promise<Array<Clinic & { distance?: number }>> {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    // Filter clinics that have emergency services
+    const emergencyClinics = mockClinics.filter(clinic =>
+      clinic.services.some(service =>
+        service.toLowerCase().includes('emergency') ||
+        service.toLowerCase().includes('24/7') ||
+        service.toLowerCase().includes('24 hour')
+      )
+    );
+
+    if (location) {
+      // Calculate distance and filter by radius
+      return emergencyClinics
+        .map(clinic => ({
+          ...clinic,
+          distance: locationService.calculateDistance(
+            location.latitude,
+            location.longitude,
+            clinic.latitude,
+            clinic.longitude
+          )
+        }))
+        .filter(clinic => clinic.distance! <= radius)
+        .sort((a, b) => a.distance! - b.distance!);
+    }
+
+    return emergencyClinics;
+  }
 }
 
 export const vetService = new VetService();
