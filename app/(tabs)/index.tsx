@@ -1,75 +1,100 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { View, Text, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <ScrollView 
+        className="flex-1" 
+        contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 32 }}
+        accessibilityLabel="VetConnect home screen"
+      >
+        {/* Header Section */}
+        <View className="mb-8">
+          <Text 
+            className="text-2xl font-inter-bold text-primary-700 mb-3"
+            accessibilityRole="header"
+            accessibilityLevel={1}
+          >
+            Welcome to VetConnect
+          </Text>
+          <Text 
+            className="text-base font-inter text-secondary-600 leading-6"
+            accessibilityRole="text"
+          >
+            Find the perfect veterinarian for your pet
+          </Text>
+        </View>
+        
+        {/* Phase 1 Complete Card */}
+        <View 
+          className="bg-primary-50 p-6 rounded-xl mb-6"
+          accessibilityRole="region"
+          accessibilityLabel="Project progress update"
+        >
+          <Text 
+            className="text-lg font-inter-semibold text-primary-700 mb-4"
+            accessibilityRole="header"
+            accessibilityLevel={2}
+          >
+            Phase 1 Complete
+          </Text>
+          <View className="space-y-3">
+            <Text 
+              className="text-sm font-inter text-primary-600 leading-5"
+              accessibilityRole="text"
+            >
+              • Project setup with TypeScript
+            </Text>
+            <Text 
+              className="text-sm font-inter text-primary-600 leading-5"
+              accessibilityRole="text"
+            >
+              • Redux Toolkit state management
+            </Text>
+            <Text 
+              className="text-sm font-inter text-primary-600 leading-5"
+              accessibilityRole="text"
+            >
+              • NativeWind styling configured
+            </Text>
+            <Text 
+              className="text-sm font-inter text-primary-600 leading-5"
+              accessibilityRole="text"
+            >
+              • Firebase services structure
+            </Text>
+            <Text 
+              className="text-sm font-inter text-primary-600 leading-5"
+              accessibilityRole="text"
+            >
+              • Location services setup
+            </Text>
+          </View>
+        </View>
+
+        {/* Next Phase Card */}
+        <View 
+          className="bg-secondary-50 p-6 rounded-xl"
+          accessibilityRole="region"
+          accessibilityLabel="Next development phase information"
+        >
+          <Text 
+            className="text-lg font-inter-semibold text-secondary-700 mb-3"
+            accessibilityRole="header"
+            accessibilityLevel={2}
+          >
+            Next Phase: Authentication System
+          </Text>
+          <Text 
+            className="text-sm font-inter text-secondary-600 leading-6"
+            accessibilityRole="text"
+          >
+            We'll implement login, registration, and user management with Firebase Auth.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});

@@ -1,32 +1,69 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <ThemedView style={styles.container}>
-        <ThemedText type="title">This screen does not exist.</ThemedText>
-        <Link href="/" style={styles.link}>
-          <ThemedText type="link">Go to home screen!</ThemedText>
-        </Link>
-      </ThemedView>
+      <Stack.Screen options={{ title: 'Page Not Found' }} />
+      <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+        <View 
+          className="flex-1 items-center justify-center px-6"
+          accessibilityRole="main"
+          accessibilityLabel="Page not found screen"
+        >
+          {/* Error Icon */}
+          <View className="bg-error/10 p-6 rounded-full mb-6">
+            <IconSymbol
+              size={48}
+              color="#ef4444"
+              name="exclamationmark.triangle"
+            />
+          </View>
+
+          {/* Error Message */}
+          <Text 
+            className="text-2xl font-inter-bold text-secondary-700 text-center mb-3"
+            accessibilityRole="header"
+            accessibilityLevel={1}
+          >
+            Page Not Found
+          </Text>
+          
+          <Text 
+            className="text-base font-inter text-secondary-600 text-center leading-6 mb-8"
+            accessibilityRole="text"
+          >
+            Sorry, the page you're looking for doesn't exist or has been moved.
+          </Text>
+
+          {/* Home Button */}
+          <Link href="/" asChild>
+            <TouchableOpacity
+              className="bg-primary-500 px-8 py-4 rounded-xl"
+              accessibilityRole="button"
+              accessibilityLabel="Go to home screen"
+              accessibilityHint="Returns you to the main screen"
+              style={{ minHeight: 44, minWidth: 200 }}
+            >
+              <Text className="text-white font-inter-semibold text-base text-center">
+                Go to Home
+              </Text>
+            </TouchableOpacity>
+          </Link>
+
+          {/* Alternative Navigation */}
+          <View className="mt-6">
+            <Text 
+              className="text-sm font-inter text-secondary-500 text-center"
+              accessibilityRole="text"
+            >
+              Or explore other sections of VetConnect
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-});
