@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { UserLocation, LocationCoordinates, Veterinarian, Clinic } from '../types';
+import { Clinic, LocationCoordinates, UserLocation, Veterinarian } from '../types';
 
 export enum LocationError {
   PERMISSION_DENIED = 'PERMISSION_DENIED',
@@ -123,7 +123,7 @@ class LocationService {
 
       return userLocation;
     } catch (error: any) {
-      if (error instanceof LocationServiceError) {
+      if (error.code && error.message && typeof error.isRetryable === 'boolean') {
         throw error;
       }
 
@@ -159,11 +159,11 @@ class LocationService {
    * Create a standardized location service error
    */
   private createLocationError(code: LocationError, message: string): LocationServiceError {
-    const error = new Error(message) as any;
-    error.code = code;
-    error.message = message;
-    error.isRetryable = code !== LocationError.PERMISSION_DENIED;
-    return error;
+    return {
+      code,
+      message,
+      isRetryable: code !== LocationError.PERMISSION_DENIED
+    } as LocationServiceError;
   }
 
   async reverseGeocode(coordinates: LocationCoordinates): Promise<{ address?: string; city?: string; state?: string }> {
@@ -269,7 +269,7 @@ class LocationService {
 
     return vets
       .map(vet => {
-        const clinic = clinicMap.get(vet.clinicId);
+        const clinic = clinicMap.get(vet.clinic_id);
         if (!clinic) return null;
 
         const distance = this.calculateDistance(userLocation, clinic.coordinates);
@@ -318,12 +318,12 @@ class LocationService {
    */
   isClinicOpen(clinic: Clinic): boolean {
     const now = new Date();
-    const dayOfWeek = now.toLocaleDateString('en', { weekday: 'long' }).toLowerCase() as keyof typeof clinic.openingHours;
+    const dayOfWeek = now.toLocaleDateString('en', { weekday: 'long' }).toLowerCase() as keyof typeof clinic.hours;
     const currentTime = now.toTimeString().slice(0, 5); // HH:mm format
     
-    const daySchedule = clinic.openingHours[dayOfWeek];
+    const daySchedule = clinic.hours?.[dayOfWeek];
     
-    if (!daySchedule.isOpen || !daySchedule.openTime || !daySchedule.closeTime) {
+    if (!daySchedule || !daySchedule.isOpen || !daySchedule.openTime || !daySchedule.closeTime) {
       return false;
     }
 

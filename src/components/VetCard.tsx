@@ -1,14 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  Linking,
   Alert,
+  Image,
+  Linking,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Veterinarian, Clinic } from '../types';
-import { Ionicons } from '@expo/vector-icons';
+import { Clinic, Veterinarian } from '../types';
 
 interface VetCardProps {
   veterinarian: Veterinarian;
@@ -92,12 +92,11 @@ const VetCard: React.FC<VetCardProps> = ({
             className="w-20 h-20 rounded-xl"
             accessibilityLabel={`Photo of Dr. ${veterinarian.name}`}
           />
-          
+
           {/* Availability Indicator */}
           <View
-            className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center ${
-              isAvailable ? 'bg-green-500' : 'bg-gray-400'
-            }`}
+            className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center ${isAvailable ? 'bg-green-500' : 'bg-gray-400'
+              }`}
             accessibilityLabel={isAvailable ? 'Available' : 'Not available'}
           >
             <Ionicons
@@ -112,10 +111,21 @@ const VetCard: React.FC<VetCardProps> = ({
         <View className="flex-1 ml-4">
           {/* Header Row */}
           <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-lg font-semibold text-gray-900 flex-1">
-              {veterinarian.name}
-            </Text>
-            
+            <View>
+              <Text className="text-lg font-semibold text-gray-900 flex-1">
+                {veterinarian.name}
+              </Text>
+              {/* Experience Badge */}
+              <View className="bg-gray-100 px-2 py-1 rounded-lg">
+                <Text className="text-xs font-medium text-gray-700">
+                  {veterinarian.experience}y exp
+                </Text>
+              </View>
+
+            </View>
+
+
+
             {distance && (
               <View className="bg-blue-50 px-2 py-1 rounded-lg ml-2">
                 <View className="flex-row items-center">
@@ -177,16 +187,10 @@ const VetCard: React.FC<VetCardProps> = ({
             </TouchableOpacity>
           </View>
         </View>
+
       </View>
 
-      {/* Experience Badge */}
-      <View className="absolute top-4 right-4">
-        <View className="bg-gray-100 px-2 py-1 rounded-lg">
-          <Text className="text-xs font-medium text-gray-700">
-            {veterinarian.experience}y exp
-          </Text>
-        </View>
-      </View>
+
     </TouchableOpacity>
   );
 };

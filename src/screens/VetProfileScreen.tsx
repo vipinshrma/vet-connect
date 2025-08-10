@@ -1,27 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Linking,
-  FlatList,
-  Dimensions,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Veterinarian, Clinic, Review, RootStackParamList } from '../types';
-import { supabaseVetService } from '../services/supabaseVetService';
+import React, { useEffect, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  Image,
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabaseClinicService } from '../services/supabaseClinicService';
+import { supabaseVetService } from '../services/supabaseVetService';
+import { Clinic, Review, RootStackParamList, Veterinarian } from '../types';
 
 type VetProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'VetProfile'>;
 
 const { width } = Dimensions.get('window');
 
 const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }) => {
-  const { veterinarianId } = route.params;
+  // Safely extract veterinarianId with fallback
+  const veterinarianId = route?.params?.veterinarianId;
   const [veterinarian, setVeterinarian] = useState<Veterinarian | null>(null);
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -31,10 +32,20 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadVeterinarianData();
+    if (veterinarianId) {
+      loadVeterinarianData();
+    } else {
+      setError('No veterinarian ID provided');
+      setLoading(false);
+    }
   }, [veterinarianId]);
 
   const loadVeterinarianData = async () => {
+    if (!veterinarianId) {
+      setError('No veterinarian ID provided');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -74,7 +85,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
   };
 
   const handleCall = () => {
-    if (veterinarian) {
+    if (veterinarian && veterinarian.phone) {
       const phoneNumber = veterinarian.phone.replace(/[^0-9]/g, '');
       Linking.openURL(`tel:${phoneNumber}`);
     }
@@ -90,7 +101,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
   };
 
   const handleGetDirections = () => {
-    if (clinic) {
+    if (clinic && clinic.coordinates) {
       const url = `maps://app?daddr=${clinic.coordinates.latitude},${clinic.coordinates.longitude}`;
       Linking.openURL(url).catch(() => {
         // Fallback to Google Maps web
@@ -149,7 +160,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
   };
 
   const renderPhotoGallery = () => {
-    const photos = clinic?.photos || [veterinarian?.photoURL || ''];
+    const photos = clinic?.photos || [veterinarian?.photoURL].filter(Boolean);
     
     return (
       <View className="mb-6">
@@ -376,7 +387,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
                   {veterinarian.name}
                 </Text>
                 <Text className="text-blue-600 font-semibold text-lg mt-1">
-                  {veterinarian.specialties[0]}
+                  {veterinarian?.specialties?.[0] || 'General Practice'}
                 </Text>
                 <View className="flex-row items-center mt-2">
                   {renderStars(veterinarian.rating, 18)}
@@ -419,11 +430,17 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
           <View className="bg-white mx-4 rounded-xl p-4 mb-4 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 mb-3">Specialties</Text>
             <View className="flex-row flex-wrap">
-              {veterinarian.specialties.map((specialty, index) => (
-                <View key={index} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
-                  <Text className="text-blue-700 font-medium">{specialty}</Text>
+              {veterinarian?.specialties && veterinarian.specialties.length > 0 ? (
+                veterinarian.specialties.map((specialty, index) => (
+                  <View key={index} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
+                    <Text className="text-blue-700 font-medium">{specialty}</Text>
+                  </View>
+                ))
+              ) : (
+                <View className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
+                  <Text className="text-blue-700 font-medium">General Practice</Text>
                 </View>
-              ))}
+              )}
             </View>
           </View>
 
@@ -473,10 +490,12 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
       </SafeAreaView>
     );
   }
+  
 
-  const availableSlots = veterinarian.availableSlots.filter(slot => slot.isAvailable);
+  const availableSlots = veterinarian?.availableSlots?.filter(slot => slot.isAvailable) || [];
   const nextAvailableSlot = availableSlots[0];
 
+  console.log("availableSlots",availableSlots)
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
@@ -505,7 +524,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
                 {veterinarian.name}
               </Text>
               <Text className="text-blue-600 font-semibold text-lg mt-1">
-                {veterinarian.specialties[0]}
+                {veterinarian?.specialties?.[0] || 'General Practice'}
               </Text>
               <View className="flex-row items-center mt-2">
                 {renderStars(veterinarian.rating, 18)}
@@ -518,7 +537,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
 
           <View className="flex-row items-center mb-3">
             <Ionicons name="business" size={18} color="#6b7280" />
-            <Text className="text-gray-700 ml-3 flex-1">{clinic.name}</Text>
+            <Text className="text-gray-700 ml-3 flex-1">{clinic?.name || 'Unknown Clinic'}</Text>
             <View className={`px-3 py-1 rounded-full ${
               isOpenNow() ? 'bg-green-100' : 'bg-red-100'
             }`}>
@@ -533,7 +552,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
           <View className="flex-row items-center mb-3">
             <Ionicons name="location" size={18} color="#6b7280" />
             <Text className="text-gray-700 ml-3 flex-1">
-              {clinic.address}, {clinic.city}, {clinic.state}
+              {clinic?.address || 'Address not available'}, {clinic?.city || ''}, {clinic?.state || ''}
             </Text>
           </View>
 
@@ -580,11 +599,17 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
         <View className="bg-white mx-4 rounded-xl p-4 mb-4 shadow-sm">
           <Text className="text-lg font-semibold text-gray-900 mb-3">Specialties</Text>
           <View className="flex-row flex-wrap">
-            {veterinarian.specialties.map((specialty, index) => (
-              <View key={index} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
-                <Text className="text-blue-700 font-medium">{specialty}</Text>
+            {veterinarian?.specialties && veterinarian.specialties.length > 0 ? (
+              veterinarian.specialties.map((specialty, index) => (
+                <View key={index} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
+                  <Text className="text-blue-700 font-medium">{specialty}</Text>
+                </View>
+              ))
+            ) : (
+              <View className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
+                <Text className="text-blue-700 font-medium">General Practice</Text>
               </View>
-            ))}
+            )}
           </View>
         </View>
 
@@ -592,12 +617,16 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
         <View className="bg-white mx-4 rounded-xl p-4 mb-4 shadow-sm">
           <Text className="text-lg font-semibold text-gray-900 mb-3">Services Available</Text>
           <View className="space-y-2">
-            {clinic.services.map((service, index) => (
-              <View key={index} className="flex-row items-center">
-                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                <Text className="text-gray-700 ml-3">{service}</Text>
-              </View>
-            ))}
+            {clinic?.services && clinic.services.length > 0 ? (
+              clinic.services.map((service, index) => (
+                <View key={index} className="flex-row items-center">
+                  <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                  <Text className="text-gray-700 ml-3">{service}</Text>
+                </View>
+              ))
+            ) : (
+              <Text className="text-gray-600">No services information available</Text>
+            )}
           </View>
         </View>
 
@@ -613,7 +642,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
             </TouchableOpacity>
           </View>
           
-          {Object.entries(clinic.openingHours).map(([day, schedule]) => (
+          {Object.entries(clinic?.openingHours || {}).map(([day, schedule]) => (
             <View key={day} className="flex-row justify-between py-2">
               <Text className="text-gray-900 font-medium capitalize">{day}</Text>
               <Text className="text-gray-600">

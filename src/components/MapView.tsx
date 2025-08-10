@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
-import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { Clinic } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { mockClinics } from '../data/mockClinics';
+import { Clinic } from '../types';
 
 interface VetMapViewProps {
   clinics?: Clinic[];
@@ -37,6 +37,7 @@ const VetMapView: React.FC<VetMapViewProps> = ({
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
+      
       
       setUserLocation(location);
       

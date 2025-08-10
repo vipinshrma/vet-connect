@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { Clinic, OpeningHours, DatabaseHours } from '../types';
+import { Clinic, DatabaseHours, OpeningHours } from '../types';
 import { Database } from './supabaseTypes';
 import { supabaseVetService } from './supabaseVetService';
 
@@ -10,7 +10,6 @@ type ClinicUpdate = Database['public']['Tables']['clinics']['Update'];
 export class SupabaseClinicService {
   // Convert database hours to app format
   private convertDatabaseToAppHours(dbHours: any): OpeningHours {
-    console.log('Input to convertDatabaseToAppHours:', JSON.stringify(dbHours, null, 2));
     const defaultHours: OpeningHours = {
       monday: { isOpen: true, openTime: '08:00', closeTime: '18:00' },
       tuesday: { isOpen: true, openTime: '08:00', closeTime: '18:00' },

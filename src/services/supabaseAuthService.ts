@@ -1,5 +1,5 @@
-import { supabase } from '../config/supabase';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '../config/supabase';
 import { User, UserType } from '../types';
 import { validateEmailWithMessage } from '../utils/emailValidation';
 
@@ -185,8 +185,10 @@ export const signUpWithEmail = async (data: SignUpData): Promise<AuthResult> => 
     const { data: authData, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: data.password,
+      phone:data.phone,
       options: {
         data: {
+          display_name: data.name,
           name: data.name,
           phone: data.phone,
           userType: data.userType,

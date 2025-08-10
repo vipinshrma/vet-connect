@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
   FlatList,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Text,
   TextInput,
   TouchableOpacity,
-  Modal,
-  ScrollView,
-  Alert,
-  RefreshControl,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import VetCard from '../components/VetCard';
-import { Veterinarian, Clinic, SearchFilters, UserLocation } from '../types';
-import { supabaseVetService } from '../services/supabaseVetService';
+import { mockVeterinarians } from '../data';
+import { locationService } from '../services/locationService';
 import { supabaseClinicService } from '../services/supabaseClinicService';
-import { mockVeterinarians, mockClinics } from '../data';
+import { supabaseVetService } from '../services/supabaseVetService';
+import { Clinic, SearchFilters, UserLocation, Veterinarian } from '../types';
 
 interface VetListScreenProps {
   navigation: any;
@@ -68,37 +69,55 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
   ];
 
   useEffect(() => {
-    loadVeterinarians();
-    loadClinics();
-    requestLocationPermission();
+    const initializeScreen = async () => {
+      try {
+        await loadVeterinarians();
+        await loadClinics();
+        // Don't block screen loading on location permission
+        requestLocationPermission().catch(err => {
+        });
+      } catch (error) {
+        console.error('Error initializing VetListScreen:', error);
+      }
+    };
+    
+    initializeScreen();
   }, []);
 
   useEffect(() => {
+    if(!userLocation?.address) return;
     if (searchQuery.trim()) {
       handleSearch(searchQuery);
     } else {
       applyFilters();
     }
-  }, [searchQuery, filters, veterinarians]);
+  }, [searchQuery, filters, veterinarians,userLocation]);
 
-  const loadVeterinarians = async (reset: boolean = false) => {
+  // Separate effect for when userLocation changes - only re-sort if filters are active
+  useEffect(() => {
+    if(!userLocation?.address) return;
+    if (userLocation && (filters.radius < 25 || getActiveFilterCount() > 0)) {
+      // Only re-apply filters if user has active location-based filters
+      applyFilters();
+    }
+  }, [userLocation]);
+
+  const loadVeterinarians = async () => {
     if (loading) return;
     
     setLoading(true);
     try {
       const allVets = await supabaseVetService.getAllVeterinarians();
-      
       // If database is empty, use mock data as fallback
       if (allVets.length === 0) {
         console.log('Database is empty, using mock data as fallback');
-        setVeterinarians(mockVeterinarians);
+        setVeterinarians([]);
       } else {
         console.log(`Loaded ${allVets.length} veterinarians from Supabase database`);
         setVeterinarians(allVets);
       }
     } catch (error) {
       console.error('Error loading veterinarians from Supabase:', error);
-      console.log('Using mock data as fallback due to error');
       setVeterinarians(mockVeterinarians);
     } finally {
       setLoading(false);
@@ -107,22 +126,71 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
 
   const requestLocationPermission = async () => {
     try {
-      // Simulate location permission request
-      setLocationPermissionGranted(true);
-      setUserLocation({
-        coordinates: { latitude: 37.7749, longitude: -122.4194 }, // San Francisco
-        address: 'San Francisco, CA',
-        city: 'San Francisco',
-        state: 'CA',
-      });
-    } catch (error) {
-      Alert.alert('Location Permission', 'Please enable location services for better recommendations.');
+      // console.log('🗺️ Starting location permission request...');
+      setLoading(true);
+      
+      // Check if permission already granted
+      const hasPermission = await locationService.hasLocationPermission();
+      // console.log('📍 Has location permission:', hasPermission);
+      
+      if (hasPermission) {
+        // console.log('✅ Permission already granted, getting location...');
+        const location = await locationService.getCurrentLocation();
+        setUserLocation(location);
+        setLocationPermissionGranted(true);
+        // console.log('📍 Location obtained successfully:', location);
+        return;
+      }
+
+      // Request permission
+      const result = await locationService.requestLocationPermission();
+      if (result.granted) {
+        const location = await locationService.getCurrentLocation();
+        setUserLocation(location);
+        setLocationPermissionGranted(true);
+        // console.log('Location permission granted and location obtained:', location);
+      } else {
+        setLocationPermissionGranted(false);
+        Alert.alert(
+          'Location Permission Required', 
+          result.error?.message || 'Location access is needed to find nearby veterinarians. You can still search without location-based results.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: () => {
+              // In a real app, you might want to open device settings
+              console.log('Open device settings for location permission');
+            }}
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error requesting location permission:', error);
+      setLocationPermissionGranted(false);
+      
+      // Provide user-friendly error message
+      const errorMessage = error.message || 'Unable to access location. Please try again or continue without location-based results.';
+      Alert.alert('Location Error', errorMessage, [
+        { text: 'Continue Without Location', style: 'cancel' },
+        { text: 'Try Again', onPress: requestLocationPermission }
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const calculateDistance = (): number => {
-    // Mock distance calculation - in real app, calculate based on coordinates
-    return Math.random() * 20 + 0.5;
+  const calculateDistance = (clinic: Clinic): number => {
+    if (!userLocation || !clinic?.coordinates) {
+      return 0;
+    }
+    try {
+      return locationService.calculateDistanceInMiles(
+        userLocation.coordinates, 
+        clinic.coordinates
+      );
+    } catch (error) {
+      console.error('Error calculating distance:', error);
+      return 0;
+    }
   };
 
   const applyFilters = async () => {
@@ -170,13 +238,47 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
       );
     }
 
-    // Sort by rating and distance
+    // Apply proximity filtering if location is available and radius filter is set
+    if (userLocation && filters.radius > 0) {
+      const vetsWithClinics = filtered
+        .map(vet => ({
+          vet,
+          clinic: clinics[vet.clinic_id]
+        }))
+        .filter(item => item.clinic?.coordinates);
+
+      const nearbyVets = vetsWithClinics
+        .map(item => ({
+          ...item.vet,
+          distance: calculateDistance(item.clinic!)
+        }))
+        .filter(vet => vet.distance <= filters.radius)
+        .map(vet => {
+          const { distance, ...vetData } = vet;
+          return vetData;
+        });
+
+      filtered = nearbyVets;
+    }
+
+    // Sort by distance if location available, otherwise by rating
     filtered.sort((a, b) => {
       if (userLocation) {
-        const distanceA = calculateDistance();
-        const distanceB = calculateDistance();
-        return distanceA - distanceB;
+        const clinicA = clinics[a.clinic_id];
+        const clinicB = clinics[b.clinic_id];
+        
+        if (clinicA?.coordinates && clinicB?.coordinates) {
+          const distanceA = calculateDistance(clinicA);
+          const distanceB = calculateDistance(clinicB);
+          
+          // Primary sort by distance
+          if (Math.abs(distanceA - distanceB) > 0.1) { // Only if distance difference is significant
+            return distanceA - distanceB;
+          }
+        }
       }
+      
+      // Secondary sort by rating
       return b.rating - a.rating;
     });
 
@@ -185,7 +287,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadVeterinarians(true);
+    await loadVeterinarians();
     setRefreshing(false);
   }, []);
 
@@ -231,6 +333,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
     if (filters.rating > 0) count++;
     if (filters.availableToday) count++;
     if (filters.openNow) count++;
+    if (userLocation && filters.radius < 25) count++; // Count radius as active filter if changed from default
     return count;
   };
 
@@ -244,6 +347,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
   };
 
   const [clinics, setClinics] = useState<{[id: string]: Clinic}>({});
+
 
   // Load clinics data
   const loadClinics = async () => {
@@ -261,7 +365,7 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
 
   const renderVetCard = ({ item }: { item: Veterinarian }) => {
     const clinic = clinics[item.clinic_id];
-    const distance = userLocation ? calculateDistance() : undefined;
+    const distance = userLocation && clinic ? calculateDistance(clinic) : undefined;
 
     return (
       <VetCard
@@ -313,13 +417,30 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
       {/* Header */}
       <View className="bg-white px-4 py-3 border-b border-gray-100">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-2xl font-bold text-gray-900">Find Veterinarians</Text>
-          {!locationPermissionGranted && (
+          <View className="flex-1">
+            <Text className="text-2xl font-bold text-gray-900">Find Veterinarians</Text>
+            {locationPermissionGranted && userLocation && (
+              <Text className="text-sm text-green-600 mt-1">
+                📍 {userLocation.city ? `${userLocation.city}, ${userLocation.state}` : 'Location enabled'}
+              </Text>
+            )}
+          </View>
+          
+          {!locationPermissionGranted ? (
             <TouchableOpacity
               onPress={requestLocationPermission}
-              className="bg-blue-50 p-2 rounded-lg"
+              className="bg-blue-50 px-3 py-2 rounded-lg flex-row items-center"
             >
-              <Ionicons name="location" size={20} color="#3b82f6" />
+              <Ionicons name="location" size={16} color="#3b82f6" />
+              <Text className="text-blue-600 ml-1 text-sm font-medium">Enable</Text>
+            </TouchableOpacity>
+          ) : userLocation && (
+            <TouchableOpacity
+              onPress={() => locationService.clearLocationCache()}
+              className="bg-green-50 px-3 py-2 rounded-lg flex-row items-center"
+            >
+              <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+              <Text className="text-green-600 ml-1 text-sm font-medium">Located</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -359,9 +480,14 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
         </View>
 
         {/* Active Filters */}
-        {(filters.specialties.length > 0 || filters.rating > 0 || filters.availableToday) && (
+        {(filters.specialties.length > 0 || filters.rating > 0 || filters.availableToday || (userLocation && filters.radius < 25)) && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
             <View className="flex-row">
+              {userLocation && filters.radius < 25 && (
+                <View className="bg-purple-100 px-3 py-1 rounded-full mr-2">
+                  <Text className="text-purple-800 text-sm">Within {filters.radius} mi</Text>
+                </View>
+              )}
               {filters.specialties.map(specialty => (
                 <View key={specialty} className="bg-blue-100 px-3 py-1 rounded-full mr-2">
                   <Text className="text-blue-800 text-sm">{specialty}</Text>
@@ -469,6 +595,47 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
                 ))}
               </View>
             </View>
+
+            {/* Distance/Radius Filter */}
+            {userLocation && locationPermissionGranted && (
+              <View className="mb-6">
+                <Text className="text-lg font-semibold text-gray-900 mb-3">
+                  Distance Range
+                </Text>
+                <Text className="text-sm text-gray-600 mb-3">
+                  Show vets within {filters.radius} miles
+                </Text>
+                <View className="flex-row flex-wrap">
+                  {[5, 10, 15, 25, 50].map(radius => (
+                    <TouchableOpacity
+                      key={radius}
+                      onPress={() => setFilters(prev => ({ 
+                        ...prev, 
+                        radius 
+                      }))}
+                      className={`mr-3 mb-3 px-4 py-2 rounded-lg border flex-row items-center ${
+                        filters.radius === radius
+                          ? 'bg-blue-600 border-blue-600'
+                          : 'bg-white border-gray-300'
+                      }`}
+                    >
+                      <Ionicons 
+                        name="location" 
+                        size={16} 
+                        color={filters.radius === radius ? 'white' : '#6b7280'} 
+                      />
+                      <Text className={`ml-2 ${
+                        filters.radius === radius
+                          ? 'text-white'
+                          : 'text-gray-700'
+                      }`}>
+                        {radius} mi
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* Availability */}
             <View className="mb-6">
