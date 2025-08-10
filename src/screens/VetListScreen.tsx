@@ -107,7 +107,13 @@ const VetListScreen: React.FC<VetListScreenProps> = ({ navigation }) => {
     
     setLoading(true);
     try {
-      const allVets = await supabaseVetService.getAllVeterinarians();
+      // Get current location coordinates if available
+      const locationParams = userLocation?.latitude && userLocation?.longitude
+        ? { latitude: userLocation.latitude, longitude: userLocation.longitude }
+        : null;
+
+      const allVets = await supabaseVetService.getAllVeterinarians(locationParams);
+      
       // If database is empty, use mock data as fallback
       if (allVets.length === 0) {
         console.log('Database is empty, using mock data as fallback');

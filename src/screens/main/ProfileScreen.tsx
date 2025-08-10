@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { AppDispatch } from '../../store';
-import { logoutUser } from '../../store/slices/authSlice';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useDispatch } from 'react-redux';
 import { supabase } from '../../config/supabase';
 import { supabaseVetService } from '../../services/supabaseVetService';
+import { AppDispatch } from '../../store';
+import { logoutUser } from '../../store/slices/authSlice';
 import { RootStackParamList } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -100,7 +100,17 @@ const ProfileScreen: React.FC = () => {
       <View className="bg-white px-6 pt-12 pb-6 border-b border-gray-100">
         <View className="items-center">
           <View className="w-20 h-20 bg-blue-100 rounded-full items-center justify-center mb-4">
-            <Ionicons name="person" size={32} color="#3b82f6" />
+          {userProfile?.photo_url ? (
+            <Image
+              source={{ uri: userProfile.photo_url }}
+              className="w-20 h-20 rounded-full"
+              accessibilityLabel="User profile photo"
+            />
+          ) : (
+            <View className="w-20 h-20 rounded-full bg-blue-100 items-center justify-center">
+              <Ionicons name="person" size={32} color="#3b82f6" accessibilityLabel="Default user icon" />
+            </View>
+          )}
           </View>
           <Text className="text-xl font-bold text-gray-900 mb-1">
             {userProfile?.name || 'User'}
@@ -220,13 +230,15 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View className="space-y-2">
-          <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+          {
+            !isVeterinarian && <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
             <View className="flex-row items-center">
               <Ionicons name="person-circle" size={18} color="#6b7280" />
               <Text className="text-gray-800 ml-3 font-medium">Edit Profile</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#6b7280" />
           </TouchableOpacity>
+          }
 
           <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
             <View className="flex-row items-center">

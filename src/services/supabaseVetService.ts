@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../config/supabase';
-import { Veterinarian, TimeSlot } from '../types';
+import { TimeSlot, Veterinarian } from '../types';
 import { Database } from './supabaseTypes';
 
 type VeterinarianRow = Database['public']['Tables']['veterinarians']['Row'];
@@ -63,7 +65,7 @@ export class SupabaseVetService {
       name: row.profiles.name,
       email: row.profiles.email,
       phone: row.profiles.phone || '',
-      photoURL: row.profiles.photo_url || undefined,
+      photoURL: ((row.profiles as any).photo_url as string | undefined) || row.profiles.photo_url || undefined,
       specialties: row.specialties || [],
       experience: row.experience,
       rating: row.rating,
@@ -76,8 +78,9 @@ export class SupabaseVetService {
   }
 
   // Get all veterinarians
-  async getAllVeterinarians(): Promise<Veterinarian[]> {
+  async getAllVeterinarians(_locationParams?: { latitude: number, longitude: number }): Promise<Veterinarian[]> {
     try {
+      // Simplified query to avoid complex select typing issues
       const { data, error } = await supabase
         .from('veterinarians')
         .select(`
@@ -477,6 +480,90 @@ export class SupabaseVetService {
       console.error('Error in deleteVeterinarianProfile:', error);
       throw error;
     }
+  }
+
+  // Upload veterinarian profile image to Supabase Storage and update profiles.photo_url
+  async uploadVetPhoto(vetId: string, photoUri: string): Promise<string> {
+    try {
+      const fileExtension = photoUri.split('.').pop() || 'jpg';
+      const fileName = `vet-${vetId}-${Date.now()}.${fileExtension}`;
+      const filePath = fileName;
+
+      const response = await fetch(photoUri);
+      if (!response.ok) {
+        throw new Error(`Failed to read file: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('Image file is empty or corrupted');
+      }
+
+      const bucket = (Constants.expoConfig?.extra as any)?.SUPABASE_STORAGE_BUCKET || 'vet-connect-media';
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${fileExtension}`,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(`Failed to upload photo: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      // Update profiles.photo_url with the public URL (profile id equals vet id)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          ...( { photo_url: publicUrl } as any ),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', vetId);
+
+      if (updateError) {
+        // Cleanup uploaded file if DB update fails
+        await supabase.storage.from(bucket).remove([filePath]);
+        throw new Error(`Failed to update veterinarian image: ${updateError.message}`);
+      }
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading vet photo:', error);
+      throw error;
+    }
+  }
+
+  // Open image picker and upload selected image for veterinarian
+  async selectAndUploadVetPhoto(
+    vetId: string,
+    callbacks?: { onImageSelected?: () => void }
+  ): Promise<string | null> {
+    // Request permission
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      throw new Error('Permission to access camera roll is required!');
+    }
+
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      callbacks?.onImageSelected?.();
+      const photoUrl = await this.uploadVetPhoto(vetId, result.assets[0].uri);
+      return photoUrl;
+    }
+
+    return null;
   }
 }
 
