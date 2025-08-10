@@ -14,6 +14,8 @@ import VetProfileSetupScreen from '../screens/VetProfileSetupScreen';
 import VetProfileEditScreen from '../screens/VetProfileEditScreen';
 import VetListScreen from '../screens/VetListScreen';
 import AdvancedSearchScreen from '../screens/AdvancedSearchScreen';
+import MyClinicProfileScreen from '../screens/MyClinicProfileScreen';
+import ScheduleManagementScreen from '../screens/ScheduleManagementScreen';
 import ClinicDetailsScreen from '../screens/ClinicDetailsScreen';
 import BookAppointmentScreen from '../screens/BookAppointmentScreen';
 import RescheduleAppointmentScreen from '../screens/RescheduleAppointmentScreen';
@@ -77,6 +79,16 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen 
             name="AdvancedSearch" 
             component={AdvancedSearchScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="MyClinicProfile" 
+            component={MyClinicProfileScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="ScheduleManagement" 
+            component={ScheduleManagementScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen 

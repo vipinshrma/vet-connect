@@ -117,8 +117,8 @@ const HomeScreen: React.FC<HomeScreenProps> = () => {
           title: "My Clinic Profile",
           description: "Update your professional information",
           iconName: "person",
-          onPress: undefined,
-          isComingSoon: true
+          onPress: () => navigation?.navigate('MyClinicProfile'),
+          isComingSoon: false
         },
         {
           title: "Schedule Management",

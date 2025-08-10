@@ -72,12 +72,17 @@ export interface Clinic {
   phone: string;
   email?: string;
   website?: string;
+  description?: string;
+  emergencyContact?: string;
+  licenseNumber?: string;
   coordinates: {
     latitude: number;
     longitude: number;
   };
   services: string[];
-  openingHours: OpeningHours;
+  insuranceAccepted: string[];
+  paymentMethods: string[];
+  hours: OpeningHours;
   photos?: string[];
   rating: number;
   reviewCount: number;
@@ -101,6 +106,23 @@ export interface DaySchedule {
   closeTime?: string; // "17:00"
   breakStart?: string; // "12:00"
   breakEnd?: string; // "13:00"
+}
+
+// Database format for hours (snake_case)
+export interface DatabaseHours {
+  monday: DatabaseDaySchedule;
+  tuesday: DatabaseDaySchedule;
+  wednesday: DatabaseDaySchedule;
+  thursday: DatabaseDaySchedule;
+  friday: DatabaseDaySchedule;
+  saturday: DatabaseDaySchedule;
+  sunday: DatabaseDaySchedule;
+}
+
+export interface DatabaseDaySchedule {
+  is_open: boolean;
+  open_time?: string;
+  close_time?: string;
 }
 
 // Appointment Types
@@ -135,6 +157,70 @@ export interface TimeSlot {
   startTime: string; // "09:00"
   endTime: string; // "09:30"
   isAvailable: boolean;
+  isBooked?: boolean;
+  appointmentId?: string;
+  slotType?: 'regular' | 'break' | 'blocked';
+}
+
+// Schedule Management Types
+export interface VeterinarianSchedule {
+  id: string;
+  veterinarianId: string;
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
+  isWorking: boolean;
+  startTime: string; // "08:00"
+  endTime: string; // "17:00"
+  breakStartTime?: string; // "12:00"
+  breakEndTime?: string; // "13:00"
+  slotDuration: number; // Duration in minutes
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleException {
+  id: string;
+  veterinarianId: string;
+  exceptionDate: string; // YYYY-MM-DD
+  exceptionType: 'unavailable' | 'custom_hours' | 'break_change';
+  startTime?: string;
+  endTime?: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
+  slotDuration?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface DaySchedule {
+  dayOfWeek: number;
+  dayName: string;
+  isWorking: boolean;
+  startTime: string;
+  endTime: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
+  slotDuration: number;
+}
+
+export interface WeeklySchedule {
+  [key: number]: DaySchedule; // key is dayOfWeek (0-6)
+}
+
+// Database format for schedule (snake_case)
+export interface DatabaseSchedule {
+  id: string;
+  veterinarian_id: string;
+  day_of_week: number;
+  is_working: boolean;
+  start_time: string;
+  end_time: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  slot_duration: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Review Types
@@ -191,6 +277,8 @@ export type RootStackParamList = {
   VetProfileEdit: { veterinarianId: string };
   VetList: { bookingMode?: boolean } | undefined;
   AdvancedSearch: undefined;
+  MyClinicProfile: undefined;
+  ScheduleManagement: undefined;
   ClinicDetails: { clinicId: string };
   BookAppointment: { veterinarianId: string; clinicId: string };
   RescheduleAppointment: { appointmentId: string };

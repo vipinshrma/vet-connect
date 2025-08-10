@@ -1,9 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
-import authSlice from './slices/authSlice';
-import vetSlice from './slices/vetSlice';
 import appointmentSlice from './slices/appointmentSlice';
-import petSlice from './slices/petSlice';
+import authSlice from './slices/authSlice';
 import locationSlice from './slices/locationSlice';
+import petSlice from './slices/petSlice';
+import vetSlice from './slices/vetSlice';
 
 export const store = configureStore({
   reducer: {
