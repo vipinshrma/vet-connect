@@ -2,6 +2,7 @@
  * Accessibility utilities for VetConnect app
  */
 
+import Constants from 'expo-constants';
 import { Clinic, Review, Veterinarian } from '../types';
 
 /**
@@ -224,14 +225,19 @@ export const getSearchResultsAccessibilityLabel = (veterinarians: number, clinic
     return 'No search results found';
   }
 };
-const MAPBOX_TOKEN = "pk.eyJ1IjoidmlwaW5zaHJtYTEyIiwiYSI6ImNtZTV1NnA0ODBiNnEyanM4aG0wdDJ1b28ifQ.e8eBCqIdFjERginAbIZV-w";
+const MAPBOX_TOKEN =
+  Constants.expoConfig?.extra?.MAPBOX_ACCESS_TOKEN || process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
 export const fetchPostalCode = async (lat: number, lng: number) => {
+  if (!MAPBOX_TOKEN) {
+    console.warn('Mapbox token missing; unable to fetch postal code.');
+    return null;
+  }
+
   const res = await fetch(
     `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}`
   );
   const data = await res.json();
-  console.log("data",data)
   const postalCodeObj = data.features[0]?.context?.find((c: { id: string }) => c.id.startsWith("postcode."));
   return postalCodeObj ? postalCodeObj.text : null;
 };

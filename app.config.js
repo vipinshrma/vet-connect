@@ -1,6 +1,6 @@
 // Dynamic Expo config to load environment variables for runtime usage
 // Use .env with EXPO_PUBLIC_* vars or regular vars accessed via process.env here
-
+import 'dotenv/config';
 module.exports = ({ config }) => ({
   ...config,
   expo: {
@@ -37,6 +37,12 @@ module.exports = ({ config }) => ({
       favicon: './assets/images/favicon.png',
     },
     plugins: [
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.15.2",
+        }
+      ],
       'expo-router',
       [
         'expo-splash-screen',
@@ -61,12 +67,18 @@ module.exports = ({ config }) => ({
     },
     // Expose environment values to the app at runtime
     extra: {
+      ...config.expo?.extra, // Preserve existing properties
       SUPABASE_URL: process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL,
       SUPABASE_ANON_KEY:
         process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       SUPABASE_STORAGE_BUCKET:
         process.env.SUPABASE_STORAGE_BUCKET || process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET || 'vet-connect-media',
+      MAPBOX_ACCESS_TOKEN:
+        process.env.MAPBOX_ACCESS_TOKEN || process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN,
+      eas: {
+        owner: 'vipansharma12',
+        projectId: process.env.EXPO_PUBLIC_PROJECT_ID
+      },
     },
   },
 });
-

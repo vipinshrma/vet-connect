@@ -1,7 +1,9 @@
+import Constants from 'expo-constants';
 import React, { useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoidmlwaW5zaHJtYTEyIiwiYSI6ImNtZTV1NnA0ODBiNnEyanM4aG0wdDJ1b28ifQ.e8eBCqIdFjERginAbIZV-w";
+const MAPBOX_TOKEN =
+  Constants.expoConfig?.extra?.MAPBOX_ACCESS_TOKEN || process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
 interface LocationResult {
     id: string;
@@ -24,6 +26,11 @@ const LocationSearch: React.FC<LocationSearchProps> = ({ onSelect,value }) => {
         setQuery(text);
         if (text.length < 2) {
             setResults([]);
+            return;
+        }
+
+        if (!MAPBOX_TOKEN) {
+            console.warn('Mapbox token missing; unable to search for locations.');
             return;
         }
 
