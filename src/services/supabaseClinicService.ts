@@ -73,6 +73,8 @@ export class SupabaseClinicService {
         latitude: row.latitude,
         longitude: row.longitude,
       },
+      latitude:row?.latitude,
+      longitude:row?.longitude,
       services: row.services || [],
       hours: this.convertDatabaseToAppHours((row as any).hours || (row as any).opening_hours),
       photos: row.photos || [],
@@ -400,6 +402,8 @@ export class SupabaseClinicService {
     insuranceAccepted?: string[];
     paymentMethods?: string[];
     hours?: OpeningHours;
+    latitude?: string | number;
+    longitude?: string | number;
   }): Promise<void> {
     try {
       const updatePayload: any = {};
@@ -422,6 +426,8 @@ export class SupabaseClinicService {
       if (updateData.hours !== undefined) {
         updatePayload.hours = this.convertAppToDatabaseHours(updateData.hours);
       }
+      if (updateData.latitude !== undefined) updatePayload.latitude = updateData.latitude;
+      if (updateData.longitude !== undefined) updatePayload.longitude = updateData.longitude;
 
       updatePayload.updated_at = new Date().toISOString();
 

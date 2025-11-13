@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Veterinarian } from '../types';
-import { supabaseVetService } from '../services/supabaseVetService';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import LocationSearch from '../components/LocationSearch';
 import { supabase } from '../config/supabase';
+import { supabaseVetService } from '../services/supabaseVetService';
+import { RootStackParamList, Veterinarian } from '../types';
+import { fetchPostalCode } from '../utils/accessibilityUtils';
 
 type VetProfileEditScreenProps = NativeStackScreenProps<RootStackParamList, 'VetProfileEdit'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -38,7 +41,7 @@ const specialtyOptions = [
 ];
 
 const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) => {
-  const { veterinarianId='' } = route.params;
+  const { veterinarianId = '' } = route.params;
   const navigation = useNavigation<NavigationProp>();
   const [veterinarian, setVeterinarian] = useState<Veterinarian | null>(null);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -52,13 +55,13 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
   const [clinic, setClinic] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if(!veterinarianId) return;
+    if (!veterinarianId) return;
     loadVeterinarianData();
   }, [veterinarianId]);
-
-  console.log("clinc",clinicCity)
 
   const loadVeterinarianData = async () => {
     try {
@@ -68,6 +71,10 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
         setVeterinarian(vet);
         setSelectedSpecialties(vet.specialties);
         setExperience(vet.experience.toString());
+        if (vet?.photoURL) {
+          setImageUrl(vet?.photoURL)
+
+        }
 
         // Load clinic data if clinic_id exists
         if (vet.clinic_id) {
@@ -76,8 +83,6 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
             .select('*')
             .eq('id', vet.clinic_id)
             .single();
-            console.log("clinicData",clinicData)
-
           if (!clinicError && clinicData) {
             setClinic(clinicData);
             setClinicName(clinicData.name || '');
@@ -143,7 +148,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
 
     try {
       setSaving(true);
-      
+
       // Update clinic information
       if (clinic) {
         // Update existing clinic
@@ -198,22 +203,20 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
           .select('id')
           .single();
 
-          console.log("newClinic",newClinic)
-
         if (clinicError) {
           throw new Error(`Failed to create clinic: ${clinicError.message}`);
         }
 
         // Update state with new clinic
         setClinic({ id: newClinic.id, ...clinicData });
-        
+
         // Update veterinarian with new clinic ID
         await supabaseVetService.updateVeterinarianProfile(veterinarianId, {
           specialties: selectedSpecialties,
           experience: parseInt(experience),
           clinic_id: newClinic.id,
         });
-      } 
+      }
 
       Alert.alert(
         'Success',
@@ -271,18 +274,36 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
     );
   };
 
+  const handleUploadProfileImage = async () => {
+    try {
+      setImageUploading(true);
+      const url = await supabaseVetService.selectAndUploadVetPhoto(veterinarianId, {
+        onImageSelected: () => setImageUploading(true),
+      });
+      if (url) {
+        setImageUrl(url);
+        Alert.alert('Success', 'Profile image updated');
+      }
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb', justifyContent: 'center', alignItems: 'center' }}>
         <View style={{ alignItems: 'center' }}>
-          <View style={{ 
-            width: 64, 
-            height: 64, 
-            backgroundColor: '#dbeafe', 
-            borderRadius: 32, 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            marginBottom: 16 
+          <View style={{
+            width: 64,
+            height: 64,
+            backgroundColor: '#dbeafe',
+            borderRadius: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16
           }}>
             <Ionicons name="medical" size={28} color="#3b82f6" />
           </View>
@@ -301,19 +322,20 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       {/* Modern Header */}
+
       <View style={{ backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => navigation.goBack()}
-              style={{ 
-                width: 40, 
-                height: 40, 
-                borderRadius: 20, 
-                backgroundColor: '#f3f4f6', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                marginRight: 16 
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#f3f4f6',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 16
               }}
               accessibilityLabel="Go back"
               accessibilityRole="button"
@@ -329,17 +351,17 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
               </Text>
             </View>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             onPress={handleDelete}
-            style={{ 
-              width: 40, 
-              height: 40, 
-              borderRadius: 20, 
-              backgroundColor: '#fef2f2', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              marginLeft: 8 
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#fef2f2',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginLeft: 8
             }}
             accessibilityLabel="Delete profile"
             accessibilityRole="button"
@@ -349,7 +371,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16 }}
@@ -476,7 +498,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
             }}>
               Update all areas of veterinary medicine you specialize in. This helps pet owners find the right care for their pets.
             </Text>
-            
+
             <View style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
@@ -488,16 +510,8 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                   <TouchableOpacity
                     key={specialty}
                     onPress={() => toggleSpecialty(specialty)}
-                    style={{
-                      marginHorizontal: 4,
-                      marginBottom: 12,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderRadius: 8,
-                      borderWidth: 2,
-                      backgroundColor: isSelected ? '#3b82f6' : '#f9fafb',
-                      borderColor: isSelected ? '#3b82f6' : '#e5e7eb',
-                    }}
+                    className={`${isSelected ? 'bg-blue-500' : 'bg-gray-50'} rounded-lg px-4 py-3 ${isSelected ? 'text-white' : 'text-gray-900'}  mx-1 mb-3 px-4 py-3 rounded-lg `}
+
                     accessibilityLabel={`${isSelected ? 'Deselect' : 'Select'} ${specialty}`}
                     accessibilityRole="button"
                   >
@@ -566,25 +580,14 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
           }}>
             Update your years of veterinary medicine experience.
           </Text>
-          
+
           <View style={{ position: 'relative' }}>
             <TextInput
               value={experience}
               onChangeText={setExperience}
               placeholder="Enter years of experience (e.g., 5)"
               keyboardType="numeric"
-              style={{
-                height: 56,
-                paddingHorizontal: 16,
-                paddingRight: 48,
-                backgroundColor: '#f9fafb',
-                borderWidth: 2,
-                borderColor: '#e5e7eb',
-                borderRadius: 12,
-                color: '#111827',
-                fontSize: 16,
-                fontWeight: '500'
-              }}
+              className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
               placeholderTextColor="#9ca3af"
               accessibilityLabel="Years of experience"
               accessibilityHint="Enter the number of years you've been practicing"
@@ -613,6 +616,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
           elevation: 4,
           marginBottom: 32
         }}>
+
           <View style={{ padding: 24, paddingBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <View style={{
@@ -651,7 +655,87 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
             }}>
               Update details about your clinic or practice location. This information helps pet owners find and contact you easily.
             </Text>
-            
+
+            <View style={{ padding: 24, paddingBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  borderRadius: 24,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16
+                }}>
+                  <Ionicons name="image" size={20} color="#3b82f6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                    color: '#111827'
+                  }}>
+                    Profile Image
+                  </Text>
+                  <Text style={{
+                    color: '#3b82f6',
+                    fontSize: 14,
+                    fontWeight: '600'
+                  }}>
+                    Optional • Upload your profile photo
+                  </Text>
+                </View>
+              </View>
+              <Text style={{
+                color: '#6b7280',
+                fontSize: 14,
+                lineHeight: 20,
+                marginBottom: 24
+              }}>
+                Upload a professional profile photo to help pet owners recognize you.
+              </Text>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#f3f4f6',
+                  borderRadius: 12,
+                  padding: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                  borderStyle: 'dashed'
+                }}
+                accessibilityLabel="Upload profile image"
+                accessibilityRole="button"
+                onPress={handleUploadProfileImage}
+              >
+                {imageUploading ? (
+                  <View style={{ alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#6b7280" />
+                    <Text style={{ color: '#6b7280', fontSize: 14, fontWeight: '500', marginTop: 8 }}>
+                      Uploading...
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    {imageUrl ? (
+                      <Image
+                        source={{ uri: imageUrl }}
+                        style={{ width: 96, height: 96, borderRadius: 48, marginBottom: 8 }}
+                        accessibilityLabel="Profile image preview"
+                      />
+                    ) : (
+                      <Ionicons name="cloud-upload" size={24} color="#6b7280" />
+                    )}
+                    <Text style={{ color: '#6b7280', fontSize: 14, fontWeight: '500', marginTop: 8 }}>
+                      Tap to upload image
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            <View style={{ height: 1, backgroundColor: '#e5e7eb', marginVertical: 24 }} />
             <View style={{ gap: 24 }}>
               {/* Clinic Name */}
               <View>
@@ -667,22 +751,13 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                   value={clinicName}
                   onChangeText={setClinicName}
                   placeholder="e.g., Happy Paws Veterinary Clinic"
-                  style={{
-                    height: 56,
-                    paddingHorizontal: 16,
-                    backgroundColor: '#f9fafb',
-                    borderWidth: 2,
-                    borderColor: '#e5e7eb',
-                    borderRadius: 12,
-                    color: '#111827',
-                    fontSize: 16
-                  }}
+                  className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                   placeholderTextColor="#9ca3af"
                   accessibilityLabel="Clinic name"
                 />
               </View>
 
-              {/* Street Address */}
+              {/* Address with Location Search */}
               <View>
                 <Text style={{
                   color: '#111827',
@@ -690,24 +765,20 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                   marginBottom: 12,
                   fontSize: 16
                 }}>
-                  Street Address *
+                  Address *
                 </Text>
-                <TextInput
+                <LocationSearch
                   value={clinicAddress}
-                  onChangeText={setClinicAddress}
-                  placeholder="123 Main Street, Suite 100"
-                  style={{
-                    height: 56,
-                    paddingHorizontal: 16,
-                    backgroundColor: '#f9fafb',
-                    borderWidth: 2,
-                    borderColor: '#e5e7eb',
-                    borderRadius: 12,
-                    color: '#111827',
-                    fontSize: 16
+                  onSelect={async (location) => {
+                    const [longitude, latitude] = location.geometry.coordinates;
+                    const zipCode = await fetchPostalCode(latitude, longitude);
+
+                    setClinicAddress(location.place_name);
+                    setClinicCity(location.context.find(ctx => ctx.id.startsWith('place'))?.text || '');
+                    setClinicState(location.context.find(ctx => ctx.id.startsWith('region'))?.text || '');
+                    setClinicZipCode(zipCode || '');
                   }}
-                  placeholderTextColor="#9ca3af"
-                  accessibilityLabel="Street address"
+                  accessibilityLabel="Clinic address search"
                 />
               </View>
 
@@ -726,18 +797,10 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                     value={clinicCity}
                     onChangeText={setClinicCity}
                     placeholder="New York"
-                    style={{
-                      height: 56,
-                      paddingHorizontal: 16,
-                      backgroundColor: '#f9fafb',
-                      borderWidth: 2,
-                      borderColor: '#e5e7eb',
-                      borderRadius: 12,
-                      color: '#111827',
-                      fontSize: 16
-                    }}
+                    className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                     placeholderTextColor="#9ca3af"
                     accessibilityLabel="City"
+                    editable={false}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -753,18 +816,10 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                     value={clinicState}
                     onChangeText={setClinicState}
                     placeholder="NY"
-                    style={{
-                      height: 56,
-                      paddingHorizontal: 16,
-                      backgroundColor: '#f9fafb',
-                      borderWidth: 2,
-                      borderColor: '#e5e7eb',
-                      borderRadius: 12,
-                      color: '#111827',
-                      fontSize: 16
-                    }}
+                    className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                     placeholderTextColor="#9ca3af"
                     accessibilityLabel="State"
+                    editable={false}
                   />
                 </View>
               </View>
@@ -785,18 +840,10 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                     onChangeText={setClinicZipCode}
                     placeholder="10001"
                     keyboardType="numeric"
-                    style={{
-                      height: 56,
-                      paddingHorizontal: 16,
-                      backgroundColor: '#f9fafb',
-                      borderWidth: 2,
-                      borderColor: '#e5e7eb',
-                      borderRadius: 12,
-                      color: '#111827',
-                      fontSize: 16
-                    }}
+                    className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                     placeholderTextColor="#9ca3af"
                     accessibilityLabel="ZIP code"
+                    editable={false}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -813,16 +860,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                     onChangeText={setClinicPhone}
                     placeholder="(555) 123-4567"
                     keyboardType="phone-pad"
-                    style={{
-                      height: 56,
-                      paddingHorizontal: 16,
-                      backgroundColor: '#f9fafb',
-                      borderWidth: 2,
-                      borderColor: '#e5e7eb',
-                      borderRadius: 12,
-                      color: '#111827',
-                      fontSize: 16
-                    }}
+                    className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                     placeholderTextColor="#9ca3af"
                     accessibilityLabel="Phone number"
                   />

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 const { createClient } = require('@supabase/supabase-js');
 
 // Supabase configuration (read from env)

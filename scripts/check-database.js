@@ -1,4 +1,6 @@
+import 'dotenv/config';
 const { createClient } = require('@supabase/supabase-js');
+
 
 // Using anon key to check if data exists (read-only)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;

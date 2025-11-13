@@ -28,6 +28,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="vetconnect"/>
+        <data android:scheme="exp+vetconnect"/>
       </intent-filter>
     </activity>
   </application>

@@ -15,9 +15,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 
+import LocationSearch from '../components/LocationSearch';
 import { supabaseClinicService } from '../services/supabaseClinicService';
 import { RootState } from '../store';
 import { Clinic, OpeningHours, RootStackParamList } from '../types';
+import { fetchPostalCode } from '../utils/accessibilityUtils';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -37,7 +39,11 @@ interface ClinicFormData {
   insuranceAccepted: string[];
   paymentMethods: string[];
   hours: OpeningHours;
+  latitude: string | number,
+  longitude: string | number
 }
+
+
 
 const MyClinicProfileScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -47,7 +53,7 @@ const MyClinicProfileScreen: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [hasManagePermission, setHasManagePermission] = useState(true);
-  
+
   const [formData, setFormData] = useState<ClinicFormData>({
     name: '',
     address: '',
@@ -74,13 +80,12 @@ const MyClinicProfileScreen: React.FC = () => {
     },
   });
 
-  // console.log("formData",formData)
 
   const [activeTab, setActiveTab] = useState<'info' | 'hours' | 'services'>('info');
 
   const availableServices = [
     'General Checkup',
-    'Vaccinations', 
+    'Vaccinations',
     'Surgery',
     'Dental Care',
     'Emergency Care',
@@ -124,7 +129,6 @@ const MyClinicProfileScreen: React.FC = () => {
     { key: 'pet-insurance', label: 'Pet Insurance' },
     { key: 'payment-plan', label: 'Payment Plans' }
   ];
-
   useEffect(() => {
     if (user?.id) {
       loadClinicData();
@@ -137,18 +141,18 @@ const MyClinicProfileScreen: React.FC = () => {
     try {
       console.log('Starting to load clinic data for user:', user.id);
       setLoading(true);
-      
+
       // Get veterinarian's clinic
       const vetClinic = await supabaseClinicService.getVeterinarianClinic(user.id);
-      
+
       if (vetClinic) {
         setClinic(vetClinic);
-        
+
         // Check if user has management permissions
         // TODO: Add permissions check
         // const permissions = await supabaseClinicService.getClinicPermissions(user.id, vetClinic.id);
         // setHasManagePermission(permissions.canManage);
-        
+
         // Populate form data
         setFormData({
           name: vetClinic.name,
@@ -166,6 +170,8 @@ const MyClinicProfileScreen: React.FC = () => {
           insuranceAccepted: vetClinic.insuranceAccepted || [],
           paymentMethods: vetClinic.paymentMethods || ['cash', 'credit-card', 'debit-card'],
           hours: vetClinic.hours,
+          latitude: vetClinic?.latitude,
+          longitude: vetClinic?.longitude
         });
       }
     } catch (error) {
@@ -186,29 +192,31 @@ const MyClinicProfileScreen: React.FC = () => {
 
     try {
       setSaving(true);
-      
+
       const updateData = {
-        name: formData.name.trim(),
-        address: formData.address.trim(),
-        city: formData.city.trim(),
-        state: formData.state.trim(),
-        zip_code: formData.zip_code.trim(),
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        website: formData.website.trim(),
-        description: formData.description.trim(),
-        emergencyContact: formData.emergencyContact.trim(),
-        licenseNumber: formData.licenseNumber.trim(),
+        name: formData.name ? formData.name.trim() : formData.name,
+        address: formData.address ? formData.address.trim() : formData.address,
+        city: formData.city ? formData.city.trim() : formData.city,
+        state: formData.state ? formData.state.trim() : formData.state,
+        zip_code: formData.zip_code ? formData.zip_code.trim() : formData.zip_code,
+        phone: formData.phone ? formData.phone.trim() : formData.phone,
+        email: formData.email ? formData.email.trim() : formData.email,
+        website: formData.website ? formData.website.trim() : formData.website,
+        description: formData.description ? formData.description.trim() : formData.description,
+        emergencyContact: formData.emergencyContact ? formData.emergencyContact.trim() : formData.emergencyContact,
+        licenseNumber: formData.licenseNumber ? formData.licenseNumber.trim() : formData.licenseNumber,
         services: formData.services,
         insuranceAccepted: formData.insuranceAccepted,
         paymentMethods: formData.paymentMethods,
         hours: formData.hours,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
       };
 
       await supabaseClinicService.updateClinic(clinic.id, updateData);
-      
+
       Alert.alert('Success', 'Clinic profile updated successfully');
-      
+
       // Don't reload - the form data should already be correct since user entered it
       // Only update the clinic object's updatedAt timestamp
       setClinic(prev => prev ? {
@@ -268,18 +276,16 @@ const MyClinicProfileScreen: React.FC = () => {
     <TouchableOpacity
       key={tab}
       onPress={() => setActiveTab(tab)}
-      className={`flex-1 flex-row items-center justify-center py-3 px-4 rounded-lg mx-1 ${
-        activeTab === tab ? 'bg-blue-500' : 'bg-gray-100'
-      }`}
+      className={`flex-1 flex-row items-center justify-center py-3 px-4 rounded-lg mx-1 ${activeTab === tab ? 'bg-blue-500' : 'bg-gray-100'
+        }`}
     >
-      <Ionicons 
-        name={icon as any} 
-        size={18} 
-        color={activeTab === tab ? '#fff' : '#6b7280'} 
+      <Ionicons
+        name={icon as any}
+        size={18}
+        color={activeTab === tab ? '#fff' : '#6b7280'}
       />
-      <Text className={`ml-2 font-medium ${
-        activeTab === tab ? 'text-white' : 'text-gray-600'
-      }`}>
+      <Text className={`ml-2 font-medium ${activeTab === tab ? 'text-white' : 'text-gray-600'
+        }`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -292,7 +298,7 @@ const MyClinicProfileScreen: React.FC = () => {
         <Text className="text-lg font-inter-semibold text-gray-900 mb-4">
           Basic Information
         </Text>
-        
+
         <View className="space-y-4">
           <View>
             <Text className="text-sm font-inter-medium text-gray-700 mb-2">
@@ -342,23 +348,41 @@ const MyClinicProfileScreen: React.FC = () => {
         <Text className="text-lg font-inter-semibold text-gray-900 mb-4">
           Contact Information
         </Text>
-        
+
         <View className="space-y-4">
           <View>
             <Text className="text-sm font-inter-medium text-gray-700 mb-2">
               Address *
             </Text>
-            <TextInput
-              className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
-              value={formData.address}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-              placeholder="Street address"
-              editable={hasManagePermission}
+            <LocationSearch
+              value={formData?.address}
+              onSelect={async (location) => {
+                // Get coordinates from selected location
+                const [longitude, latitude] = location.geometry.coordinates;
+
+                // Fetch postal code using coordinates
+                const zipCode = await fetchPostalCode(latitude, longitude);
+
+                // Extract city and state from location context
+                const city = location?.context.find(ctx => ctx.id.startsWith('place'))?.text || '';
+                const state = location?.context.find(ctx => ctx.id.startsWith('region'))?.text || '';
+
+                // Update form data with location details
+                setFormData(prev => ({
+                  ...prev,
+                  address: location.place_name,
+                  latitude: latitude,
+                  longitude: longitude,
+                  zip_code: zipCode || '',
+                  city: city,
+                  state: state
+                }));
+              }}
             />
           </View>
 
-          <View className="flex-row space-x-3">
-            <View className="flex-1">
+          <View className="row">
+            <View className="col flex-1">
               <Text className="text-sm font-inter-medium text-gray-700 mb-2">
                 City *
               </Text>
@@ -371,7 +395,7 @@ const MyClinicProfileScreen: React.FC = () => {
               />
             </View>
 
-            <View className="w-20">
+            <View className="col">
               <Text className="text-sm font-inter-medium text-gray-700 mb-2">
                 State *
               </Text>
@@ -384,9 +408,9 @@ const MyClinicProfileScreen: React.FC = () => {
               />
             </View>
 
-            <View className="w-24">
+            <View className="col">
               <Text className="text-sm font-inter-medium text-gray-700 mb-2">
-                ZIP *
+                Zip Code *
               </Text>
               <TextInput
                 className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
@@ -395,6 +419,30 @@ const MyClinicProfileScreen: React.FC = () => {
                 placeholder="12345"
                 editable={hasManagePermission}
               />
+            </View>
+          </View>
+
+          <View>
+            <Text className="text-sm font-inter-medium text-gray-700 mb-2">
+              Coordinates
+            </Text>
+            <View className="flex-row space-x-3 gap-2">
+              <View className="flex-1">
+                <TextInput
+                  className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
+                  value={formData?.latitude?.toString()}
+                  placeholder="Latitude"
+                  editable={false}
+                />
+              </View>
+              <View className="flex-1">
+                <TextInput
+                  className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
+                  value={formData?.longitude?.toString()}
+                  placeholder="Longitude"
+                  editable={false}
+                />
+              </View>
             </View>
           </View>
 
@@ -460,7 +508,7 @@ const MyClinicProfileScreen: React.FC = () => {
         <Text className="text-lg font-inter-semibold text-gray-900 mb-4">
           Payment & Insurance
         </Text>
-        
+
         <View className="space-y-4">
           <View>
             <Text className="text-sm font-inter-medium text-gray-700 mb-3">
@@ -472,17 +520,15 @@ const MyClinicProfileScreen: React.FC = () => {
                   key={option.key}
                   onPress={() => hasManagePermission && togglePaymentMethod(option.key)}
                   disabled={!hasManagePermission}
-                  className={`px-3 py-2 rounded-full mr-2 mb-2 ${
-                    formData.paymentMethods.includes(option.key)
+                  className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.paymentMethods.includes(option.key)
                       ? 'bg-blue-500'
                       : 'bg-gray-100'
-                  }`}
+                    }`}
                 >
-                  <Text className={`text-sm ${
-                    formData.paymentMethods.includes(option.key)
+                  <Text className={`text-sm ${formData.paymentMethods.includes(option.key)
                       ? 'text-white'
                       : 'text-gray-700'
-                  }`}>
+                    }`}>
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -500,17 +546,15 @@ const MyClinicProfileScreen: React.FC = () => {
                   key={insurance}
                   onPress={() => hasManagePermission && toggleInsurance(insurance)}
                   disabled={!hasManagePermission}
-                  className={`px-3 py-2 rounded-full mr-2 mb-2 ${
-                    formData.insuranceAccepted.includes(insurance)
+                  className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.insuranceAccepted.includes(insurance)
                       ? 'bg-green-500'
                       : 'bg-gray-100'
-                  }`}
+                    }`}
                 >
-                  <Text className={`text-sm ${
-                    formData.insuranceAccepted.includes(insurance)
+                  <Text className={`text-sm ${formData.insuranceAccepted.includes(insurance)
                       ? 'text-white'
                       : 'text-gray-700'
-                  }`}>
+                    }`}>
                     {insurance}
                   </Text>
                 </TouchableOpacity>
@@ -527,20 +571,20 @@ const MyClinicProfileScreen: React.FC = () => {
       <Text className="text-lg font-inter-semibold text-gray-900 mb-4">
         Opening Hours
       </Text>
-      
+
       {Object.keys(formData.hours).map((day) => {
         const dayData = formData.hours[day as keyof OpeningHours];
         const capitalizedDay = day.charAt(0).toUpperCase() + day.slice(1);
-        
+
         // Debug: Log the day data to see what's missing
         // console.log(`${capitalizedDay} data:`, JSON.stringify(dayData, null, 2));
-        
+
         return (
           <View key={day} className="flex-row items-center justify-between py-3 border-b border-gray-100">
             <Text className="text-base font-inter-medium text-gray-900 w-24">
               {capitalizedDay}
             </Text>
-            
+
             <Switch
               value={dayData.isOpen}
               onValueChange={(value) => {
@@ -552,7 +596,7 @@ const MyClinicProfileScreen: React.FC = () => {
               trackColor={{ false: '#e5e7eb', true: '#3b82f6' }}
               thumbColor={dayData.isOpen ? '#ffffff' : '#f3f4f6'}
             />
-            
+
             {dayData.isOpen && (
               <View className="flex-row items-center">
                 <TextInput
@@ -582,7 +626,7 @@ const MyClinicProfileScreen: React.FC = () => {
                 />
               </View>
             )}
-            
+
             {!dayData.isOpen && (
               <Text className="text-gray-500 text-right flex-1">Closed</Text>
             )}
@@ -605,17 +649,15 @@ const MyClinicProfileScreen: React.FC = () => {
               key={service}
               onPress={() => hasManagePermission && toggleService(service)}
               disabled={!hasManagePermission}
-              className={`px-3 py-2 rounded-full mr-2 mb-2 ${
-                formData.services.includes(service)
+              className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.services.includes(service)
                   ? 'bg-blue-500'
                   : 'bg-gray-100'
-              }`}
+                }`}
             >
-              <Text className={`text-sm ${
-                formData.services.includes(service)
+              <Text className={`text-sm ${formData.services.includes(service)
                   ? 'text-white'
                   : 'text-gray-700'
-              }`}>
+                }`}>
                 {service}
               </Text>
             </TouchableOpacity>
@@ -678,7 +720,7 @@ const MyClinicProfileScreen: React.FC = () => {
               My Clinic Profile
             </Text>
           </View>
-          
+
           {hasManagePermission && (
             <TouchableOpacity
               onPress={handleSave}
@@ -696,7 +738,7 @@ const MyClinicProfileScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
-        
+
         {!hasManagePermission && (
           <Text className="text-sm text-amber-600 mt-2">
             Read-only: You don't have permission to edit this clinic profile

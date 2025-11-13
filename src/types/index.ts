@@ -79,6 +79,8 @@ export interface Clinic {
     latitude: number;
     longitude: number;
   };
+  latitude: number;
+  longitude: number;
   services: string[];
   insuranceAccepted: string[];
   paymentMethods: string[];
@@ -246,6 +248,8 @@ export interface UserLocation {
   address?: string;
   city?: string;
   state?: string;
+  latitude: number;
+  longitude: number;
 }
 
 // Search Types
