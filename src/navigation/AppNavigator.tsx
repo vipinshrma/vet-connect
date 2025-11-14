@@ -22,6 +22,7 @@ import RescheduleAppointmentScreen from '../screens/RescheduleAppointmentScreen'
 import EmergencyCareScreen from '../screens/EmergencyCareScreen';
 import PetProfileScreen from '../screens/PetProfileScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
+import PetHealthScreen from '../screens/PetHealthScreen';
 import LoadingScreen from '../components/LoadingScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -120,6 +121,11 @@ const AppNavigator: React.FC = () => {
             name="AppointmentDetails" 
             component={AppointmentDetailsScreen}
             options={{ headerShown: true, title: 'Appointment Details' }}
+          />
+          <Stack.Screen
+            name="PetHealth"
+            component={PetHealthScreen}
+            options={{ headerShown: true, title: 'Pet Health' }}
           />
         </>
       )}

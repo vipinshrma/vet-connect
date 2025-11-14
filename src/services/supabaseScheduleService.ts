@@ -2,7 +2,7 @@ import { supabase } from '../config/supabase';
 import { 
   VeterinarianSchedule, 
   ScheduleException, 
-  DaySchedule, 
+  VeterinarianDaySchedule, 
   WeeklySchedule, 
   TimeSlot,
   DatabaseSchedule 
@@ -101,7 +101,7 @@ export class SupabaseScheduleService {
   async updateDaySchedule(
     veterinarianId: string,
     dayOfWeek: number,
-    daySchedule: Partial<DaySchedule>
+    daySchedule: Partial<VeterinarianDaySchedule>
   ): Promise<void> {
     try {
       const updateData = this.convertAppToDatabaseSchedule({

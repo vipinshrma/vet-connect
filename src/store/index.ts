@@ -4,6 +4,7 @@ import authSlice from './slices/authSlice';
 import locationSlice from './slices/locationSlice';
 import petSlice from './slices/petSlice';
 import vetSlice from './slices/vetSlice';
+import petHealthSlice from './slices/petHealthSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     appointments: appointmentSlice,
     pets: petSlice,
     location: locationSlice,
+    petHealth: petHealthSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

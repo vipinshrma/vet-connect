@@ -129,6 +129,7 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress, onEdit }) => {
           </Text>
         </View>
       )}
+
     </TouchableOpacity>
   );
 };
