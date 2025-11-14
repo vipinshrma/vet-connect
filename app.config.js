@@ -30,6 +30,7 @@ module.exports = ({ config }) => ({
         'android.permission.ACCESS_FINE_LOCATION',
       ],
       package: 'com.anonymous.VetConnect',
+      kotlinVersion: "1.8.22",
     },
     web: {
       bundler: 'metro',

@@ -1,8 +1,8 @@
 import MapboxGL from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, StyleSheet, View } from 'react-native';
 import { mockClinics } from '../data/mockClinics';
 import { Clinic } from '../types';
 
@@ -55,15 +55,16 @@ const VetMapView: React.FC<VetMapViewProps> = ({
   style,
 }) => {
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const [initialCameraCenter, setInitialCameraCenter] = useState<[number, number] | null>(null);
+  const [initialZoomLevel, setInitialZoomLevel] = useState<number>(calculateZoomFromDelta(initialRegion.latitudeDelta));
   const cameraRef = useRef<MapboxGL.Camera>(null);
 
-  const initialCameraSettings = useMemo(
-    () => ({
-      centerCoordinate: getCoordinateTuple(initialRegion),
-      zoomLevel: calculateZoomFromDelta(initialRegion.latitudeDelta),
-    }),
-    [initialRegion]
-  );
+  console.log("locationPermission",locationPermission)
+
+  const fallbackToInitialRegion = () => {
+    setInitialCameraCenter(getCoordinateTuple(initialRegion));
+    setInitialZoomLevel(calculateZoomFromDelta(initialRegion.latitudeDelta));
+  };
 
   const requestLocationPermission = async () => {
     try {
@@ -72,12 +73,10 @@ const VetMapView: React.FC<VetMapViewProps> = ({
       }
 
       const { status } = await Location.requestForegroundPermissionsAsync();
-
+console.log("status",status)
       if (status === 'granted') {
         setLocationPermission(true);
-        if (showUserLocation) {
-          getCurrentLocation();
-        }
+        await getCurrentLocation();
       } else {
         Alert.alert(
           'Location Permission',
@@ -87,9 +86,11 @@ const VetMapView: React.FC<VetMapViewProps> = ({
             { text: 'Settings', onPress: () => Location.requestForegroundPermissionsAsync() },
           ]
         );
+        fallbackToInitialRegion();
       }
     } catch (error) {
       console.error('Error requesting location permission:', error);
+      fallbackToInitialRegion();
     }
   };
 
@@ -98,11 +99,16 @@ const VetMapView: React.FC<VetMapViewProps> = ({
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
+      console.log("location",location)
 
-      animateCameraTo([location.coords.longitude, location.coords.latitude], 13);
+      const coordinate: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setInitialCameraCenter(coordinate);
+      setInitialZoomLevel(13);
+      animateCameraTo(coordinate, 13);
     } catch (error) {
       console.error('Error getting current location:', error);
       Alert.alert('Location Error', 'Unable to get your current location.');
+      fallbackToInitialRegion();
     }
   };
 
@@ -155,6 +161,14 @@ const VetMapView: React.FC<VetMapViewProps> = ({
     return '#10b981';
   };
 
+  if (!initialCameraCenter) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, style]}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, style]}>
       <MapboxGL.MapView
@@ -169,8 +183,8 @@ const VetMapView: React.FC<VetMapViewProps> = ({
         <MapboxGL.Camera
           ref={cameraRef}
           defaultSettings={{
-            centerCoordinate: initialCameraSettings.centerCoordinate,
-            zoomLevel: initialCameraSettings.zoomLevel,
+            centerCoordinate: initialCameraCenter,
+            zoomLevel: initialZoomLevel,
           }}
           maxZoomLevel={18}
           minZoomLevel={3}
@@ -181,7 +195,7 @@ const VetMapView: React.FC<VetMapViewProps> = ({
         />
 
         {locationPermission && showUserLocation && (
-          <MapboxGL.UserLocation visible showsUserHeadingIndicator />
+          <MapboxGL.UserLocation visible showsUserHeadingIndicator renderMode="native" />
         )}
 
         {clinics.map((clinic) => {
@@ -215,6 +229,10 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   marker: {
     width: 32,

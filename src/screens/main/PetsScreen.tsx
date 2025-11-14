@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import LoadingScreen from '../../components/LoadingScreen';
+import PetCard from '../../components/PetCard';
+import { supabase } from '../../config/supabase';
 import { AppDispatch, RootState } from '../../store';
 import { fetchUserPets } from '../../store/slices/petSlice';
-import { supabase } from '../../config/supabase';
 import { Pet, RootStackParamList } from '../../types';
-import PetCard from '../../components/PetCard';
-import LoadingScreen from '../../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,6 +33,7 @@ const PetsScreen: React.FC = () => {
   // Local state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isHealthPickerVisible, setHealthPickerVisible] = useState(false);
 
   // Check auth and load pets on component mount
   useEffect(() => {
@@ -89,12 +92,35 @@ const PetsScreen: React.FC = () => {
     navigation.navigate('PetProfile' as any);
   }, [navigation]);
 
+  const handleBookAppointment = useCallback(() => {
+    navigation.navigate('VetList', { bookingMode: true });
+  }, [navigation]);
+
   const handlePetPress = useCallback((pet: Pet) => {
     navigation.navigate('PetProfile' as any, { petId: pet.id });
   }, [navigation]);
 
   const handleEditPet = useCallback((pet: Pet) => {
     navigation.navigate('PetProfile' as any, { petId: pet.id });
+  }, [navigation]);
+
+  const handleHealthRecords = useCallback(() => {
+    if (pets.length === 0) {
+      Alert.alert('Add a pet first', 'Once you register a pet, you can view their health records here.');
+      return;
+    }
+
+    if (pets.length === 1) {
+      navigation.navigate('PetHealth' as any, { petId: pets[0].id });
+      return;
+    }
+
+    setHealthPickerVisible(true);
+  }, [navigation, pets]);
+
+  const handleSelectHealthPet = useCallback((petId: string) => {
+    setHealthPickerVisible(false);
+    navigation.navigate('PetHealth' as any, { petId });
   }, [navigation]);
 
   // Show error alert when there's an error
@@ -171,7 +197,7 @@ const PetsScreen: React.FC = () => {
             ))}
             
             {/* Add Another Pet Button */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={handleAddPet}
               className="bg-white rounded-xl p-6 mb-4 border-2 border-dashed border-gray-200 items-center"
               activeOpacity={0.7}
@@ -183,7 +209,7 @@ const PetsScreen: React.FC = () => {
               <Text className="text-gray-500 text-sm mt-1">
                 Manage multiple pets in one place
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         )}
       </ScrollView>
@@ -195,13 +221,15 @@ const PetsScreen: React.FC = () => {
             <TouchableOpacity
               className="flex-1 bg-blue-50 py-3 rounded-lg flex-row items-center justify-center"
               activeOpacity={0.7}
+              onPress={handleBookAppointment}
             >
               <Ionicons name="calendar-outline" size={18} color="#3B82F6" />
               <Text className="text-blue-600 font-medium ml-2">Book Appointment</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="flex-1 bg-green-50 py-3 rounded-lg flex-row items-center justify-center"
+              className="flex-1 bg-green-50 py-3 rounded-lg flex-row items-center justify-center ml-2"
               activeOpacity={0.7}
+              onPress={handleHealthRecords}
             >
               <Ionicons name="medical-outline" size={18} color="#10B981" />
               <Text className="text-green-600 font-medium ml-2">Health Records</Text>
@@ -209,6 +237,43 @@ const PetsScreen: React.FC = () => {
           </View>
         </View>
       )}
+
+      <Modal
+        visible={isHealthPickerVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setHealthPickerVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <TouchableWithoutFeedback onPress={() => setHealthPickerVisible(false)}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+          <View className="bg-white rounded-t-3xl px-6 pt-6 pb-10">
+            <Text className="text-lg font-semibold text-gray-900">View health records</Text>
+            <Text className="text-sm text-gray-500 mt-1">Select a pet to open their health timeline</Text>
+            <View className="mt-5">
+              {pets.map((pet) => (
+                <TouchableOpacity
+                  key={pet.id}
+                  className="py-4 border-b border-gray-100 flex-row items-center justify-between"
+                  onPress={() => handleSelectHealthPet(pet.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-base font-medium text-gray-900">{pet.name}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              className="mt-4 w-full py-3 rounded-2xl bg-gray-100"
+              onPress={() => setHealthPickerVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text className="text-center font-semibold text-gray-700">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

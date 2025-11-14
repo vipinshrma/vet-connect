@@ -114,16 +114,13 @@ const MainNavigator: React.FC = () => {
         },
         tabBarActiveTintColor: userType === 'veterinarian' ? '#059669' : '#3B82F6', // Green for vets, blue for pet owners
         tabBarInactiveTintColor: '#6B7280',
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          height: Platform.OS === 'ios' ? 60 + insets.bottom : 70,
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
+          height: Platform.OS === 'ios' ? 50 + insets.bottom : 60,
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
           paddingTop: 8,
         },
         headerStyle: {

@@ -17,7 +17,7 @@ import { useSelector } from 'react-redux';
 
 import { supabaseScheduleService } from '../services/supabaseScheduleService';
 import { RootState } from '../store';
-import { RootStackParamList, WeeklySchedule, DaySchedule, ScheduleException } from '../types';
+import { RootStackParamList, WeeklySchedule, VeterinarianDaySchedule, ScheduleException } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -82,7 +82,7 @@ const ScheduleManagementScreen: React.FC = () => {
     }
   };
 
-  const updateDaySchedule = (dayOfWeek: number, field: keyof DaySchedule, value: any) => {
+  const updateDaySchedule = (dayOfWeek: number, field: keyof VeterinarianDaySchedule, value: any) => {
     setWeeklySchedule(prev => ({
       ...prev,
       [dayOfWeek]: {

@@ -15,11 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 
-import LocationSearch from '../components/LocationSearch';
 import { supabaseClinicService } from '../services/supabaseClinicService';
 import { RootState } from '../store';
 import { Clinic, OpeningHours, RootStackParamList } from '../types';
-import { fetchPostalCode } from '../utils/accessibilityUtils';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -78,6 +76,8 @@ const MyClinicProfileScreen: React.FC = () => {
       saturday: { isOpen: true, openTime: '09:00', closeTime: '16:00' },
       sunday: { isOpen: false, openTime: '09:00', closeTime: '16:00' },
     },
+    latitude: '',
+    longitude: '',
   });
 
 
@@ -354,7 +354,7 @@ const MyClinicProfileScreen: React.FC = () => {
             <Text className="text-sm font-inter-medium text-gray-700 mb-2">
               Address *
             </Text>
-            <LocationSearch
+            {/* <LocationSearch
               value={formData?.address}
               onSelect={async (location) => {
                 // Get coordinates from selected location
@@ -378,7 +378,7 @@ const MyClinicProfileScreen: React.FC = () => {
                   state: state
                 }));
               }}
-            />
+            /> */}
           </View>
 
           <View className="row">
@@ -432,7 +432,8 @@ const MyClinicProfileScreen: React.FC = () => {
                   className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                   value={formData?.latitude?.toString()}
                   placeholder="Latitude"
-                  editable={false}
+                  editable={true}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, latitude: text }))}
                 />
               </View>
               <View className="flex-1">
@@ -440,7 +441,10 @@ const MyClinicProfileScreen: React.FC = () => {
                   className="bg-gray-50 rounded-lg px-4 py-3 text-gray-900"
                   value={formData?.longitude?.toString()}
                   placeholder="Longitude"
-                  editable={false}
+                  editable={true}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, longitude: text }))}
+
+                  
                 />
               </View>
             </View>

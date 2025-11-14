@@ -45,6 +45,64 @@ export interface Vaccination {
   veterinarianId: string;
 }
 
+export interface PetPrescription {
+  id: string;
+  medicationName: string;
+  dosage: string;
+  frequency: string;
+  durationDays?: number;
+  instructions?: string;
+  status: 'active' | 'completed' | 'expired' | 'discontinued';
+  prescribedDate: string;
+  veterinarianId?: string;
+  followUpDate?: string;
+}
+
+export interface PetHealthReminder {
+  id: string;
+  label: string;
+  dueDate: string;
+  type: 'vaccination' | 'follow-up' | 'medication';
+  status: 'upcoming' | 'overdue' | 'completed';
+}
+
+export interface PetHealthOverview {
+  lastVisit?: string;
+  primaryVeterinarian?: string;
+  nextAppointment?: string;
+  notes?: string;
+  reminders: PetHealthReminder[];
+  vitals?: {
+    weight?: number;
+    weightUnit?: 'kg' | 'lb';
+    bodyCondition?: 'underweight' | 'normal' | 'overweight';
+  };
+}
+
+export type PetTimelineEntryType = 'treatment' | 'vaccination' | 'prescription' | 'note';
+
+export interface PetTimelineEntry {
+  id: string;
+  entryType: PetTimelineEntryType;
+  title: string;
+  description?: string;
+  date: string;
+  veterinarianName?: string;
+  tags?: string[];
+  status?: 'completed' | 'overdue' | 'scheduled';
+  metadata?: Record<string, any>;
+}
+
+export interface OwnerNote {
+  id: string;
+  petId: string;
+  ownerId: string;
+  note: string;
+  noteType?: 'observation' | 'medication' | 'diet';
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Veterinarian Types
 export interface Veterinarian {
   id: string;
@@ -194,7 +252,7 @@ export interface ScheduleException {
   createdAt: string;
 }
 
-export interface DaySchedule {
+export interface VeterinarianDaySchedule {
   dayOfWeek: number;
   dayName: string;
   isWorking: boolean;
@@ -206,7 +264,7 @@ export interface DaySchedule {
 }
 
 export interface WeeklySchedule {
-  [key: number]: DaySchedule; // key is dayOfWeek (0-6)
+  [key: number]: VeterinarianDaySchedule; // key is dayOfWeek (0-6)
 }
 
 // Database format for schedule (snake_case)
@@ -289,6 +347,7 @@ export type RootStackParamList = {
   EmergencyCare: undefined;
   PetProfile: { petId?: string };
   AppointmentDetails: { appointmentId: string };
+  PetHealth: { petId: string };
 };
 
 export type TabParamList = {
