@@ -1,20 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Ionicons } from '@expo/vector-icons';
+import LoadingScreen from '../components/LoadingScreen';
 import { AppDispatch, RootState } from '../store';
 import { fetchPetHealthData } from '../store/slices/petHealthSlice';
 import { PetTimelineEntry, RootStackParamList } from '../types';
-import LoadingScreen from '../components/LoadingScreen';
 
 type PetHealthRouteProp = RouteProp<RootStackParamList, 'PetHealth'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -111,9 +111,9 @@ const PetHealthScreen: React.FC<Props> = ({ route }) => {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
       >
-        <View className="px-6 pt-6 pb-16 space-y-8">
+        <View className="px-6 pt-6 pb-16">
           {/* Overview Card */}
-          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
             <View className="flex-row justify-between items-center mb-4">
               <View>
                 <Text className="text-sm text-gray-500">Primary veterinarian</Text>
@@ -182,7 +182,7 @@ const PetHealthScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {/* Quick Actions */}
-          <View className="flex-row space-x-4 mt-1">
+          <View className="flex-row mb-6" style={{ gap: 12 }}>
             <TouchableOpacity
               className="flex-1 bg-blue-600 rounded-2xl p-4 flex-row items-center justify-center"
               onPress={() => handleFeatureComingSoon('Sharing health summaries')}
@@ -200,8 +200,8 @@ const PetHealthScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {/* Timeline */}
-          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <View className="flex-row items-center justify-between mb-4">
+          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
+            <View className="flex-row items-center justify-between mb-5">
               <View>
                 <Text className="text-lg font-semibold text-gray-900">Health timeline</Text>
                 <Text className="text-sm text-gray-500">Latest treatments and updates</Text>
@@ -213,28 +213,31 @@ const PetHealthScreen: React.FC<Props> = ({ route }) => {
             {timelineEntries.length === 0 ? (
               <Text className="text-sm text-gray-500">No records yet.</Text>
             ) : (
-              <View className="space-y-4">
+              <View>
                 {timelineEntries.map((entry, index) => (
-                  <TimelineEntry key={entry.id} entry={entry} isLast={index === timelineEntries.length - 1} />
+                  <View key={entry.id} style={{ marginBottom: index < timelineEntries.length - 1 ? 16 : 0 }}>
+                    <TimelineEntry entry={entry} isLast={index === timelineEntries.length - 1} />
+                  </View>
                 ))}
               </View>
             )}
           </View>
 
           {/* Vaccinations */}
-          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <View className="flex-row items-center justify-between mb-4">
+          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
+            <View className="flex-row items-center justify-between mb-5">
               <Text className="text-lg font-semibold text-gray-900">Vaccinations</Text>
               <TouchableOpacity onPress={() => handleFeatureComingSoon('Vaccine scheduling')}>
                 <Text className="text-blue-600 font-semibold">Schedule</Text>
               </TouchableOpacity>
             </View>
             {healthState?.vaccinations.length ? (
-              <View className="space-y-3">
-                {healthState.vaccinations.map((vaccination) => (
+              <View>
+                {healthState.vaccinations.map((vaccination, index) => (
                   <View
                     key={vaccination.id}
                     className="flex-row items-center justify-between bg-gray-50 rounded-2xl px-4 py-3"
+                    style={{ marginBottom: index < healthState.vaccinations.length - 1 ? 12 : 0 }}
                   >
                     <View>
                       <Text className="font-semibold text-gray-900">{vaccination.name}</Text>
@@ -257,19 +260,20 @@ const PetHealthScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {/* Active Medications */}
-          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <View className="flex-row items-center justify-between mb-4">
+          <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
+            <View className="flex-row items-center justify-between mb-5">
               <Text className="text-lg font-semibold text-gray-900">Medications</Text>
               <TouchableOpacity onPress={() => handleFeatureComingSoon('Medication reminders')}>
                 <Text className="text-blue-600 font-semibold">Reminders</Text>
               </TouchableOpacity>
             </View>
             {healthState?.prescriptions.length ? (
-              <View className="space-y-3">
-                {healthState.prescriptions.map((prescription) => (
+              <View>
+                {healthState.prescriptions.map((prescription, index) => (
                   <View
                     key={prescription.id}
                     className="border border-gray-100 rounded-2xl px-4 py-3"
+                    style={{ marginBottom: index < healthState.prescriptions.length - 1 ? 12 : 0 }}
                   >
                     <View className="flex-row items-center justify-between">
                       <Text className="font-semibold text-gray-900">
@@ -337,9 +341,9 @@ const TimelineEntry: React.FC<TimelineEntryProps> = ({ entry, isLast }) => {
         <View className="w-10 items-center">
           <View className="w-4 h-4 rounded-full bg-blue-600" />
         </View>
-        {!isLast && <View className="w-px bg-blue-100 flex-1 mt-1" />}
+        {!isLast && <View className="w-px bg-blue-100 flex-1 mt-1" style={{ minHeight: 20 }} />}
       </View>
-      <View className={`flex-1 bg-gray-50 rounded-2xl p-4 ${!isLast ? 'mb-4' : ''}`}>
+      <View className="flex-1 bg-gray-50 rounded-2xl p-4">
         <View className="flex-row items-center justify-between mb-1">
           <View className="flex-row items-center space-x-2">
             <Ionicons name={iconName} size={18} color="#2563EB" />

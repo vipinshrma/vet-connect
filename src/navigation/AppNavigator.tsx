@@ -23,6 +23,14 @@ import EmergencyCareScreen from '../screens/EmergencyCareScreen';
 import PetProfileScreen from '../screens/PetProfileScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import PetHealthScreen from '../screens/PetHealthScreen';
+import EditUserProfileScreen from '../screens/EditUserProfileScreen';
+import ServicesPricingScreen from '../screens/ServicesPricingScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import PrivacyScreen from '../screens/PrivacyScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import ContactSupportScreen from '../screens/ContactSupportScreen';
 import LoadingScreen from '../components/LoadingScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,6 +134,46 @@ const AppNavigator: React.FC = () => {
             name="PetHealth"
             component={PetHealthScreen}
             options={{ headerShown: true, title: 'Pet Health' }}
+          />
+          <Stack.Screen
+            name="EditUserProfile"
+            component={EditUserProfileScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ServicesPricing"
+            component={ServicesPricingScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Privacy"
+            component={PrivacyScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ChangePassword"
+            component={ChangePasswordScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="DeleteAccount"
+            component={DeleteAccountScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="HelpCenter"
+            component={HelpCenterScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ContactSupport"
+            component={ContactSupportScreen}
+            options={{ headerShown: false }}
           />
         </>
       )}

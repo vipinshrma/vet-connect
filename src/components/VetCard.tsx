@@ -44,8 +44,8 @@ const VetCard: React.FC<VetCardProps> = ({
     }
   };
 
-  const isAvailable = veterinarian.availableSlots.some(slot => slot.isAvailable);
-  const primarySpecialty = veterinarian.specialties[0] || 'General Practice';
+  const isAvailable = veterinarian.availableSlots?.some(slot => slot.isAvailable) || false;
+  const primarySpecialty = veterinarian.specialties?.[0] || 'General Practice';
 
   const renderStars = (rating: number) => {
     const stars = [];
@@ -111,22 +111,19 @@ const VetCard: React.FC<VetCardProps> = ({
         <View className="flex-1 ml-4">
           {/* Header Row */}
           <View className="flex-row justify-between items-start mb-1">
-            <View>
-              <Text className="text-lg font-semibold text-gray-900 flex-1">
-                {veterinarian.name}
+            <View className="flex-1">
+              <Text className="text-lg font-semibold text-gray-900">
+                {veterinarian.name || 'Veterinarian'}
               </Text>
               {/* Experience Badge */}
-              <View className="bg-gray-100 px-2 py-1 rounded-lg">
+              <View className="bg-gray-100 px-2 py-1 rounded-lg mt-1 self-start">
                 <Text className="text-xs font-medium text-gray-700">
-                  {veterinarian.experience}y exp
+                  {veterinarian.experience || 0}y exp
                 </Text>
               </View>
-
             </View>
 
-
-
-            {distance && (
+            {distance !== undefined && (
               <View className="bg-blue-50 px-2 py-1 rounded-lg ml-2">
                 <View className="flex-row items-center">
                   <Ionicons name="location" size={12} color="#3b82f6" />
@@ -146,10 +143,10 @@ const VetCard: React.FC<VetCardProps> = ({
           {/* Rating and Reviews */}
           <View className="flex-row items-center mb-2">
             <View className="flex-row items-center mr-2">
-              {renderStars(veterinarian.rating)}
+              {renderStars(veterinarian.rating || 0)}
             </View>
             <Text className="text-sm text-gray-600">
-              {veterinarian.rating} ({veterinarian.reviewCount} reviews)
+              {veterinarian.rating?.toFixed(1) || '0.0'} ({(veterinarian.reviewCount || 0)} reviews)
             </Text>
           </View>
 

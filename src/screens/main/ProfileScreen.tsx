@@ -6,6 +6,8 @@ import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, Vi
 import { useDispatch } from 'react-redux';
 import { supabase } from '../../config/supabase';
 import { supabaseVetService } from '../../services/supabaseVetService';
+import { supabaseClinicService } from '../../services/supabaseClinicService';
+import { supabaseScheduleService } from '../../services/supabaseScheduleService';
 import { AppDispatch } from '../../store';
 import { logoutUser } from '../../store/slices/authSlice';
 import { RootStackParamList } from '../../types';
@@ -19,6 +21,9 @@ const ProfileScreen: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [hasVetProfile, setHasVetProfile] = useState(false);
+  const [hasClinicProfile, setHasClinicProfile] = useState(false);
+  const [hasSchedule, setHasSchedule] = useState(false);
+  
   useEffect(() => {
     checkAuth();
   }, []);
@@ -47,9 +52,33 @@ const ProfileScreen: React.FC = () => {
           try {
             const vetProfile = await supabaseVetService.getVeterinarianById(user.id);
             setHasVetProfile(!!vetProfile);
+            
+            // Check if veterinarian has clinic profile
+            if (vetProfile?.clinic_id) {
+              try {
+                const clinic = await supabaseClinicService.getClinicById(vetProfile.clinic_id);
+                setHasClinicProfile(!!clinic);
+              } catch (clinicError) {
+                setHasClinicProfile(false);
+              }
+            } else {
+              setHasClinicProfile(false);
+            }
+            
+            // Check if veterinarian has schedule setup
+            if (vetProfile) {
+              try {
+                const schedule = await supabaseScheduleService.getSchedule(user.id);
+                setHasSchedule(!!schedule && Object.keys(schedule.weeklySchedule || {}).length > 0);
+              } catch (scheduleError) {
+                setHasSchedule(false);
+              }
+            }
           } catch (vetError) {
             console.log('No vet profile found');
             setHasVetProfile(false);
+            setHasClinicProfile(false);
+            setHasSchedule(false);
           }
         }
       }
@@ -93,6 +122,13 @@ const ProfileScreen: React.FC = () => {
   }
 
   const isVeterinarian = userProfile?.user_type === 'veterinarian';
+  
+  // Calculate completion percentage for veterinarians
+  const completionPercentage = isVeterinarian
+    ? Math.round(
+        ((hasVetProfile ? 1 : 0) + (hasClinicProfile ? 1 : 0) + (hasSchedule ? 1 : 0)) / 3 * 100
+      )
+    : 100;
 
   return (
     <ScrollView className="flex-1 bg-gray-50">
@@ -128,6 +164,83 @@ const ProfileScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Profile Completion Status - Only for veterinarians */}
+      {isVeterinarian && completionPercentage < 100 && (
+        <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-semibold text-gray-900">Profile Completion</Text>
+            <Text className="text-sm font-medium text-gray-600">{completionPercentage}%</Text>
+          </View>
+          <View className="mb-3">
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View 
+                className="h-full bg-blue-500 rounded-full"
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </View>
+          </View>
+          <View className="space-y-2">
+            <TouchableOpacity
+              onPress={hasVetProfile ? handleVetProfileEdit : handleVetProfileSetup}
+              className="flex-row items-center justify-between p-3 bg-gray-50 rounded-lg"
+            >
+              <View className="flex-row items-center flex-1">
+                <Ionicons
+                  name={hasVetProfile ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={hasVetProfile ? '#10b981' : '#9ca3af'}
+                />
+                <Text className={`ml-3 font-medium ${hasVetProfile ? 'text-gray-900' : 'text-gray-600'}`}>
+                  Professional Profile
+                </Text>
+              </View>
+              {!hasVetProfile && (
+                <Text className="text-xs text-blue-600 font-medium">Setup</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyClinicProfile')}
+              className="flex-row items-center justify-between p-3 bg-gray-50 rounded-lg"
+            >
+              <View className="flex-row items-center flex-1">
+                <Ionicons
+                  name={hasClinicProfile ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={hasClinicProfile ? '#10b981' : '#9ca3af'}
+                />
+                <Text className={`ml-3 font-medium ${hasClinicProfile ? 'text-gray-900' : 'text-gray-600'}`}>
+                  Clinic Profile
+                </Text>
+              </View>
+              {!hasClinicProfile && (
+                <Text className="text-xs text-blue-600 font-medium">Setup</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ScheduleManagement')}
+              className="flex-row items-center justify-between p-3 bg-gray-50 rounded-lg"
+            >
+              <View className="flex-row items-center flex-1">
+                <Ionicons
+                  name={hasSchedule ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={hasSchedule ? '#10b981' : '#9ca3af'}
+                />
+                <Text className={`ml-3 font-medium ${hasSchedule ? 'text-gray-900' : 'text-gray-600'}`}>
+                  Schedule Setup
+                </Text>
+              </View>
+              {!hasSchedule && (
+                <Text className="text-xs text-blue-600 font-medium">Setup</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+
       {/* My Practice Section - Only for veterinarians */}
       {isVeterinarian && (
         <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
@@ -137,17 +250,19 @@ const ProfileScreen: React.FC = () => {
           </View>
 
           <View className="space-y-3">
-            {/* <TouchableOpacity
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyClinicProfile')}
               className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <View className="flex-row items-center">
                 <Ionicons name="storefront" size={18} color="#6b7280" />
-                <Text className="text-gray-800 ml-3 font-medium">Practice Information</Text>
+                <Text className="text-gray-800 ml-3 font-medium">Clinic Profile</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#6b7280" />
-            </TouchableOpacity> */}
+            </TouchableOpacity>
 
             <TouchableOpacity
+              onPress={() => navigation.navigate('ServicesPricing')}
               className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <View className="flex-row items-center">
@@ -158,6 +273,7 @@ const ProfileScreen: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
+              onPress={() => navigation.navigate('ScheduleManagement')}
               className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <View className="flex-row items-center">
@@ -166,16 +282,6 @@ const ProfileScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={18} color="#6b7280" />
             </TouchableOpacity>
-
-            {/* <TouchableOpacity
-              className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
-            >
-              <View className="flex-row items-center">
-                <Ionicons name="analytics" size={18} color="#6b7280" />
-                <Text className="text-gray-800 ml-3 font-medium">Practice Analytics</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#6b7280" />
-            </TouchableOpacity> */}
           </View>
         </View>
       )}
@@ -230,17 +336,23 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View className="space-y-2">
-          {
-            !isVeterinarian && <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <View className="flex-row items-center">
-              <Ionicons name="person-circle" size={18} color="#6b7280" />
-              <Text className="text-gray-800 ml-3 font-medium">Edit Profile</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#6b7280" />
-          </TouchableOpacity>
-          }
+          {!isVeterinarian && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('EditUserProfile')}
+              className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="person-circle" size={18} color="#6b7280" />
+                <Text className="text-gray-800 ml-3 font-medium">Edit Profile</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Notifications')}
+            className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
+          >
             <View className="flex-row items-center">
               <Ionicons name="notifications" size={18} color="#6b7280" />
               <Text className="text-gray-800 ml-3 font-medium">Notifications</Text>
@@ -248,7 +360,10 @@ const ProfileScreen: React.FC = () => {
             <Ionicons name="chevron-forward" size={18} color="#6b7280" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Privacy')}
+            className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
+          >
             <View className="flex-row items-center">
               <Ionicons name="shield-checkmark" size={18} color="#6b7280" />
               <Text className="text-gray-800 ml-3 font-medium">Privacy & Security</Text>
@@ -266,7 +381,10 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View className="space-y-2">
-          <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <TouchableOpacity
+            onPress={() => navigation.navigate('HelpCenter')}
+            className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
+          >
             <View className="flex-row items-center">
               <Ionicons name="chatbubble" size={18} color="#6b7280" />
               <Text className="text-gray-800 ml-3 font-medium">Help Center</Text>
@@ -274,7 +392,10 @@ const ProfileScreen: React.FC = () => {
             <Ionicons name="chevron-forward" size={18} color="#6b7280" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ContactSupport')}
+            className="flex-row items-center justify-between p-4 bg-gray-50 rounded-lg"
+          >
             <View className="flex-row items-center">
               <Ionicons name="mail" size={18} color="#6b7280" />
               <Text className="text-gray-800 ml-3 font-medium">Contact Support</Text>
