@@ -205,13 +205,41 @@ class LocationService {
    * Calculate distance between two points using Haversine formula
    */
   calculateDistance(point1: LocationCoordinates, point2: LocationCoordinates): number {
+    // Validate inputs
+    if (!point1 || !point2) {
+      console.warn('Invalid points for distance calculation:', { point1, point2 });
+      return Infinity;
+    }
+
+    const lat1 = point1.latitude;
+    const lon1 = point1.longitude;
+    const lat2 = point2.latitude;
+    const lon2 = point2.longitude;
+
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
+      console.warn('Missing coordinates for distance calculation:', { lat1, lon1, lat2, lon2 });
+      return Infinity;
+    }
+
+    // Convert to numbers if they're strings
+    const numLat1 = typeof lat1 === 'string' ? parseFloat(lat1) : lat1;
+    const numLon1 = typeof lon1 === 'string' ? parseFloat(lon1) : lon1;
+    const numLat2 = typeof lat2 === 'string' ? parseFloat(lat2) : lat2;
+    const numLon2 = typeof lon2 === 'string' ? parseFloat(lon2) : lon2;
+
+    // Validate numeric values
+    if (isNaN(numLat1) || isNaN(numLon1) || isNaN(numLat2) || isNaN(numLon2)) {
+      console.warn('NaN coordinates for distance calculation:', { numLat1, numLon1, numLat2, numLon2 });
+      return Infinity;
+    }
+
     const R = 6371; // Earth's radius in kilometers
-    const dLat = this.degToRad(point2.latitude - point1.latitude);
-    const dLon = this.degToRad(point2.longitude - point1.longitude);
+    const dLat = this.degToRad(numLat2 - numLat1);
+    const dLon = this.degToRad(numLon2 - numLon1);
     
     const a = 
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.degToRad(point1.latitude)) * Math.cos(this.degToRad(point2.latitude)) * 
+      Math.cos(this.degToRad(numLat1)) * Math.cos(this.degToRad(numLat2)) * 
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));

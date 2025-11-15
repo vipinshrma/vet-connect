@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Switch,
-  Alert,
-  ActivityIndicator,
-  FlatList,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 // import Slider from '@react-native-community/slider';
 
 import VetCard from '../components/VetCard';
-import { Veterinarian, RootStackParamList } from '../types';
-import { supabaseSearchService, SearchFilters } from '../services/supabaseSearchService';
 import { mockClinics } from '../data/mockClinics';
+import { SearchFilters, supabaseSearchService } from '../services/supabaseSearchService';
+import { RootStackParamList, Veterinarian } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -333,14 +333,14 @@ const AdvancedSearchScreen: React.FC = () => {
         </View>
 
         {/* Additional Filters */}
-        <View className="p-4 bg-white border-b border-gray-100">
-          <Text className="text-base font-semibold text-gray-900 mb-3">
+        <View className="p-4 bg-white border-b border-gray-100 mb-4">
+          <Text className="text-base font-semibold text-gray-900 mb-4">
             Additional Filters
           </Text>
           
-          <View className="flex-row items-center justify-between py-3">
-            <View>
-              <Text className="text-gray-900 font-medium">Emergency Specialists Only</Text>
+          <View className="flex-row items-center justify-between py-4 border-b border-gray-100">
+            <View className="flex-1 mr-4">
+              <Text className="text-gray-900 font-semibold mb-1">Emergency Specialists Only</Text>
               <Text className="text-sm text-gray-500">Show only emergency veterinarians</Text>
             </View>
             <Switch
@@ -351,9 +351,9 @@ const AdvancedSearchScreen: React.FC = () => {
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-3">
-            <View>
-              <Text className="text-gray-900 font-medium">Available Today</Text>
+          <View className="flex-row items-center justify-between py-4">
+            <View className="flex-1 mr-4">
+              <Text className="text-gray-900 font-semibold mb-1">Available Today</Text>
               <Text className="text-sm text-gray-500">Show only vets available today</Text>
             </View>
             <Switch
@@ -367,26 +367,36 @@ const AdvancedSearchScreen: React.FC = () => {
       </ScrollView>
 
       {/* Action Buttons */}
-      <View className="bg-white px-4 py-3 border-t border-gray-100">
-        <View className="flex-row space-x-3">
+      <View className="bg-white px-4 pt-4 pb-6 border-t border-gray-200" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 }}>
+        <View className="flex-row">
           <TouchableOpacity
             onPress={clearFilters}
-            className="flex-1 bg-gray-200 rounded-lg py-3 items-center"
+            className="flex-1 bg-gray-100 rounded-xl py-4 items-center justify-center"
+            style={{ borderWidth: 1, borderColor: '#e5e7eb', marginRight: 12 }}
           >
-            <Text className="text-gray-700 font-semibold">Clear Filters</Text>
+            <Text className="text-gray-700 font-semibold text-base">Clear Filters</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
             onPress={handleSearch}
             disabled={loading}
-            className="flex-2 bg-blue-500 rounded-lg py-3 items-center flex-row justify-center"
+            className="bg-blue-500 rounded-xl py-4 items-center justify-center flex-row"
+            style={{ 
+              flex: 2, 
+              opacity: loading ? 0.7 : 1,
+              shadowColor: '#3b82f6',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 3
+            }}
           >
             {loading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
               <>
                 <Ionicons name="search" size={20} color="white" />
-                <Text className="text-white font-semibold ml-2">Search</Text>
+                <Text className="text-white font-semibold ml-2 text-base">Search</Text>
               </>
             )}
           </TouchableOpacity>

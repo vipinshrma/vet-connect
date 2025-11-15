@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../config/supabase';
 import { TimeSlot, Veterinarian } from '../types';
 import { Database } from './supabaseTypes';
+import { getSpecialtyNamesForQuickFilter, specialtyMatchesQuickFilter } from '../utils/specialtyMapping';
 
 type VeterinarianRow = Database['public']['Tables']['veterinarians']['Row'];
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -155,9 +156,48 @@ export class SupabaseVetService {
     }
   }
 
-  // Get veterinarians by specialty
+  // Get veterinarians by specialty (supports quick filter keys)
   async getVeterinariansBySpecialty(specialty: string): Promise<Veterinarian[]> {
     try {
+      // Get mapped specialty names for the quick filter key
+      const specialtyNames = getSpecialtyNamesForQuickFilter(specialty);
+      
+      // If we have mapped specialties, use OR query with .cs. operator
+      if (specialtyNames.length > 0 && specialtyNames[0] !== specialty) {
+        // Build OR condition for all mapped specialties
+        const orConditions = specialtyNames
+          .map(s => `specialties.cs.{${s}}`)
+          .join(',');
+        
+        const { data, error } = await supabase
+          .from('veterinarians')
+          .select(`
+            *,
+            profiles!inner(*)
+          `)
+          .or(orConditions)
+          .order('rating', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching veterinarians by specialty:', error);
+          // Fallback to client-side filtering
+          return this.getVeterinariansBySpecialtyClientSide(specialty);
+        }
+
+        const results = (data || []).map(row => this.mapToVeterinarian(row));
+        
+        // If we got results, return them
+        if (results.length > 0) {
+          console.log(`Found ${results.length} veterinarians for specialty "${specialty}" from Supabase`);
+          return results;
+        }
+        
+        // If no results from database query, try client-side filtering
+        console.log(`No results from database query for "${specialty}", trying client-side filtering`);
+        return this.getVeterinariansBySpecialtyClientSide(specialty);
+      }
+      
+      // Fallback: try exact match first
       const { data, error } = await supabase
         .from('veterinarians')
         .select(`
@@ -169,13 +209,44 @@ export class SupabaseVetService {
 
       if (error) {
         console.error('Error fetching veterinarians by specialty:', error);
-        throw new Error(`Failed to fetch veterinarians by specialty: ${error.message}`);
+        return this.getVeterinariansBySpecialtyClientSide(specialty);
       }
 
-      return (data || []).map(row => this.mapToVeterinarian(row));
+      const results = (data || []).map(row => this.mapToVeterinarian(row));
+      
+      // If we got results, return them
+      if (results.length > 0) {
+        console.log(`Found ${results.length} veterinarians for specialty "${specialty}" from Supabase`);
+        return results;
+      }
+      
+      // Fallback to client-side filtering for case-insensitive matching
+      return this.getVeterinariansBySpecialtyClientSide(specialty);
     } catch (error) {
       console.error('Error in getVeterinariansBySpecialty:', error);
-      throw error;
+      // Fallback to client-side filtering on error
+      return this.getVeterinariansBySpecialtyClientSide(specialty);
+    }
+  }
+
+  // Client-side filtering for specialty (case-insensitive, partial matching)
+  private async getVeterinariansBySpecialtyClientSide(quickFilterKey: string): Promise<Veterinarian[]> {
+    try {
+      // Get all veterinarians
+      const allVets = await this.getAllVeterinarians();
+      
+      // Filter using specialty matching
+      const filtered = allVets.filter(vet =>
+        vet.specialties.some(specialty =>
+          specialtyMatchesQuickFilter(specialty, quickFilterKey)
+        )
+      );
+      
+      console.log(`Found ${filtered.length} veterinarians for "${quickFilterKey}" using client-side filtering`);
+      return filtered;
+    } catch (error) {
+      console.error('Error in getVeterinariansBySpecialtyClientSide:', error);
+      return [];
     }
   }
 
@@ -203,15 +274,33 @@ export class SupabaseVetService {
     }
   }
 
-  // Get top-rated veterinarians
-  async getTopRatedVeterinarians(limit: number = 5): Promise<Veterinarian[]> {
+  // Get top-rated veterinarians with optional quality filters
+  async getTopRatedVeterinarians(
+    limit: number = 5,
+    minRating?: number,
+    minReviews?: number
+  ): Promise<Veterinarian[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('veterinarians')
         .select(`
           *,
           profiles!inner(*)
-        `)
+        `);
+
+      // Apply quality filters if provided
+      if (minRating !== undefined && minRating > 0) {
+        query = query.gte('rating', minRating);
+        console.log(`Filtering top-rated vets with minimum rating: ${minRating}`);
+      }
+
+      if (minReviews !== undefined && minReviews > 0) {
+        query = query.gte('review_count', minReviews);
+        console.log(`Filtering top-rated vets with minimum reviews: ${minReviews}`);
+      }
+
+      // Order by rating (descending) and limit results
+      const { data, error } = await query
         .order('rating', { ascending: false })
         .limit(limit);
 
@@ -220,7 +309,10 @@ export class SupabaseVetService {
         throw new Error(`Failed to fetch top-rated veterinarians: ${error.message}`);
       }
 
-      return (data || []).map(row => this.mapToVeterinarian(row));
+      const results = (data || []).map(row => this.mapToVeterinarian(row));
+      console.log(`Found ${results.length} top-rated veterinarians from Supabase (rating >= ${minRating || 0}, reviews >= ${minReviews || 0})`);
+      
+      return results;
     } catch (error) {
       console.error('Error in getTopRatedVeterinarians:', error);
       throw error;

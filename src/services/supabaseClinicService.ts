@@ -70,11 +70,11 @@ export class SupabaseClinicService {
       email: row.email || undefined,
       website: row.website || undefined,
       coordinates: {
-        latitude: row.latitude,
-        longitude: row.longitude,
+        latitude: row.latitude ?? 0,
+        longitude: row.longitude ?? 0,
       },
-      latitude:row?.latitude,
-      longitude:row?.longitude,
+      latitude: row.latitude ?? 0,
+      longitude: row.longitude ?? 0,
       services: row.services || [],
       hours: this.convertDatabaseToAppHours((row as any).hours || (row as any).opening_hours),
       photos: row.photos || [],
@@ -201,6 +201,157 @@ export class SupabaseClinicService {
       return data.map(row => this.mapToClinic(row));
     } catch (error) {
       console.error('Error in getEmergencyClinics:', error);
+      throw error;
+    }
+  }
+
+  // Calculate distance between two coordinates using Haversine formula
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    // Validate inputs
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
+      console.warn('Invalid coordinates for distance calculation:', { lat1, lon1, lat2, lon2 });
+      return Infinity; // Return large value if coordinates are invalid
+    }
+
+    // Convert to numbers if they're strings
+    const numLat1 = typeof lat1 === 'string' ? parseFloat(lat1) : lat1;
+    const numLon1 = typeof lon1 === 'string' ? parseFloat(lon1) : lon1;
+    const numLat2 = typeof lat2 === 'string' ? parseFloat(lat2) : lat2;
+    const numLon2 = typeof lon2 === 'string' ? parseFloat(lon2) : lon2;
+
+    // Validate numeric values
+    if (isNaN(numLat1) || isNaN(numLon1) || isNaN(numLat2) || isNaN(numLon2)) {
+      console.warn('NaN coordinates for distance calculation:', { numLat1, numLon1, numLat2, numLon2 });
+      return Infinity;
+    }
+
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (numLat2 - numLat1) * Math.PI / 180;
+    const dLon = (numLon2 - numLon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(numLat1 * Math.PI / 180) * Math.cos(numLat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  }
+
+  // Check if clinic is 24/7
+  private isClinic24Hours(clinic: Clinic): boolean {
+    return clinic.services.some(service =>
+      service.toLowerCase().includes('24/7') ||
+      service.toLowerCase().includes('24 hour') ||
+      service.toLowerCase().includes('24-hour')
+    );
+  }
+
+  // Check if clinic is currently open (simplified - would need hours data)
+  private isClinicCurrentlyOpen(clinic: Clinic): boolean {
+    // If 24/7, always open
+    if (this.isClinic24Hours(clinic)) {
+      return true;
+    }
+
+    // TODO: Implement proper hours checking when hours data is available
+    // For now, return true as fallback
+    return true;
+  }
+
+  // Get nearest emergency clinics with distance calculation and sorting
+  async getNearestEmergencyClinics(
+    latitude: number,
+    longitude: number,
+    radiusKm: number = 25
+  ): Promise<Array<Clinic & { distance: number; isOpen24Hours: boolean; isCurrentlyOpen: boolean }>> {
+    try {
+      // Step 1: Get all emergency clinics
+      const emergencyClinics = await this.getEmergencyClinics();
+      
+      if (emergencyClinics.length === 0) {
+        console.log('No emergency clinics found in database');
+        return [];
+      }
+
+      // Step 2: Calculate distance for each clinic
+      const clinicsWithDistance = emergencyClinics
+        .filter(clinic => {
+          // Filter out clinics without valid coordinates
+          const hasValidCoords = 
+            clinic.latitude != null && 
+            clinic.longitude != null &&
+            !isNaN(Number(clinic.latitude)) &&
+            !isNaN(Number(clinic.longitude));
+          
+          if (!hasValidCoords) {
+            console.warn(`Clinic ${clinic.name} has invalid coordinates:`, {
+              latitude: clinic.latitude,
+              longitude: clinic.longitude
+            });
+          }
+          
+          return hasValidCoords;
+        })
+        .map(clinic => {
+          const clinicLat = typeof clinic.latitude === 'string' 
+            ? parseFloat(clinic.latitude) 
+            : Number(clinic.latitude);
+          const clinicLon = typeof clinic.longitude === 'string' 
+            ? parseFloat(clinic.longitude) 
+            : Number(clinic.longitude);
+          
+          const distance = this.calculateDistance(
+            latitude,
+            longitude,
+            clinicLat,
+            clinicLon
+          );
+          
+          const isOpen24Hours = this.isClinic24Hours(clinic);
+          const isCurrentlyOpen = this.isClinicCurrentlyOpen(clinic);
+          
+          return {
+            ...clinic,
+            distance,
+            isOpen24Hours,
+            isCurrentlyOpen
+          };
+        });
+      
+      // Step 3: Filter by radius (exclude clinics with invalid distances)
+      const nearbyClinics = clinicsWithDistance.filter(c => 
+        c.distance !== Infinity && c.distance <= radiusKm
+      );
+      
+      // Step 4: Sort by priority
+      const sortedClinics = nearbyClinics.sort((a, b) => {
+        // Priority 1: 24/7 clinics first
+        if (a.isOpen24Hours !== b.isOpen24Hours) {
+          return a.isOpen24Hours ? -1 : 1;
+        }
+        
+        // Priority 2: Currently open
+        if (a.isCurrentlyOpen !== b.isCurrentlyOpen) {
+          return a.isCurrentlyOpen ? -1 : 1;
+        }
+        
+        // Priority 3: Distance (nearest first)
+        if (Math.abs(a.distance - b.distance) > 0.1) {
+          return a.distance - b.distance;
+        }
+        
+        // Priority 4: Rating (higher first)
+        return b.rating - a.rating;
+      });
+
+      console.log(`Found ${sortedClinics.length} emergency clinics within ${radiusKm}km`);
+      return sortedClinics;
+    } catch (error) {
+      console.error('Error getting nearest emergency clinics:', error);
       throw error;
     }
   }
