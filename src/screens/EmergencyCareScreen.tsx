@@ -1,31 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Linking,
-  StyleSheet,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList, Veterinarian, Clinic, UserLocation } from '../types';
-import { locationService } from '../services/locationService';
-import { vetService } from '../services/vetService';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import VetCard from '../components/VetCard';
+import { locationService } from '../services/locationService';
+import { supabaseClinicService } from '../services/supabaseClinicService';
+import { supabaseVetService } from '../services/supabaseVetService';
+import { Clinic, RootStackParamList, UserLocation, Veterinarian } from '../types';
 
 type EmergencyCareNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+type EmergencyClinicWithDistance = Clinic & {
+  distance: number;
+  isOpen24Hours: boolean;
+  isCurrentlyOpen: boolean;
+};
 
 const EmergencyCareScreen: React.FC = () => {
   const navigation = useNavigation<EmergencyCareNavigationProp>();
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [emergencyVets, setEmergencyVets] = useState<Veterinarian[]>([]);
-  const [emergencyClinics, setEmergencyClinics] = useState<Clinic[]>([]);
+  const [emergencyClinics, setEmergencyClinics] = useState<EmergencyClinicWithDistance[]>([]);
 
   useEffect(() => {
     loadEmergencyServices();
@@ -35,38 +42,103 @@ const EmergencyCareScreen: React.FC = () => {
     try {
       setLoading(true);
       
-      // Get user location
-      const location = await locationService.getCurrentLocation();
-      setUserLocation(location.coordinates);
+      // Step 1: Get user location
+      let userLocationCoords: { latitude: number; longitude: number } | null = null;
+      try {
+        const location = await locationService.getCurrentLocation();
+        userLocationCoords = location.coordinates;
+        setUserLocation(location);
+        console.log('User location obtained:', userLocationCoords);
+      } catch (locationError: any) {
+        console.warn('Location not available, showing all emergency clinics:', locationError);
+        // Continue without location - will show all clinics
+      }
 
-      // Get emergency veterinarians and clinics
-      const [vets, clinics] = await Promise.all([
-        vetService.getEmergencyVets(location.coordinates, 25), // 25km radius
-        vetService.getEmergencyClinics(location.coordinates, 25),
-      ]);
+      // Step 2: Get emergency services from Supabase
+      if (userLocationCoords) {
+        // Get nearest emergency clinics with distance calculation
+        try {
+          let clinics = await supabaseClinicService.getNearestEmergencyClinics(
+            userLocationCoords.latitude,
+            userLocationCoords.longitude,
+            25 // 25km radius
+          );
+          
+          // If no results, try expanding radius
+          if (clinics.length === 0) {
+            console.log('No clinics found within 25km, trying 50km radius...');
+            clinics = await supabaseClinicService.getNearestEmergencyClinics(
+              userLocationCoords.latitude,
+              userLocationCoords.longitude,
+              50 // 50km radius
+            );
+          }
+          
+          setEmergencyClinics(clinics);
+          console.log(`Loaded ${clinics.length} emergency clinics from Supabase`);
+        } catch (clinicError) {
+          console.error('Error loading emergency clinics:', clinicError);
+          // Fallback to all emergency clinics
+          const allClinics = await supabaseClinicService.getEmergencyClinics();
+          setEmergencyClinics(allClinics.map(c => ({
+            ...c,
+            distance: 0,
+            isOpen24Hours: false,
+            isCurrentlyOpen: true
+          })));
+        }
+      } else {
+        // Fallback: Get all emergency clinics (no location)
+        const allClinics = await supabaseClinicService.getEmergencyClinics();
+        setEmergencyClinics(allClinics.map(c => ({
+          ...c,
+          distance: 0,
+          isOpen24Hours: false,
+          isCurrentlyOpen: true
+        })));
+        console.log('Loaded all emergency clinics (no location available)');
+      }
 
-      setEmergencyVets(vets);
-      setEmergencyClinics(clinics);
+      // Step 3: Get emergency veterinarians from Supabase
+      try {
+        const vets = await supabaseVetService.getEmergencyVeterinarians();
+        
+        // Calculate distances for vets if user location is available
+        if (userLocationCoords && vets.length > 0) {
+          const vetsWithDistance = await Promise.all(
+            vets.map(async (vet) => {
+              try {
+                const clinic = await supabaseClinicService.getClinicById(vet.clinic_id);
+                if (clinic && clinic.coordinates) {
+                  const distance = locationService.calculateDistance(
+                    userLocationCoords,
+                    clinic.coordinates
+                  );
+                  return { ...vet, distance };
+                }
+              } catch (error) {
+                console.warn(`Could not calculate distance for vet ${vet.id}:`, error);
+              }
+              return vet;
+            })
+          );
+          setEmergencyVets(vetsWithDistance);
+        } else {
+          setEmergencyVets(vets);
+        }
+        
+        console.log(`Loaded ${vets.length} emergency veterinarians from Supabase`);
+      } catch (vetError) {
+        console.error('Error loading emergency veterinarians:', vetError);
+        setEmergencyVets([]);
+      }
+      
     } catch (error: any) {
       console.error('Error loading emergency services:', error);
       Alert.alert(
-        'Location Error',
-        'Unable to find your location. Showing all emergency services.',
-        [{ text: 'OK' }]
+        'Error',
+        'Unable to load emergency services. Please check your connection and try again.'
       );
-      
-      // Load emergency services without location
-      try {
-        const [vets, clinics] = await Promise.all([
-          vetService.getEmergencyVets(),
-          vetService.getEmergencyClinics(),
-        ]);
-        setEmergencyVets(vets);
-        setEmergencyClinics(clinics);
-      } catch (fallbackError) {
-        console.error('Error loading emergency services without location:', fallbackError);
-        Alert.alert('Error', 'Unable to load emergency services. Please try again later.');
-      }
     } finally {
       setLoading(false);
     }
@@ -95,14 +167,48 @@ const EmergencyCareScreen: React.FC = () => {
     Linking.openURL(url);
   };
 
-  const calculateDistance = (clinic: Clinic): number | undefined => {
-    if (!userLocation) return undefined;
-    return locationService.calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      clinic.latitude,
-      clinic.longitude
+  const handleFindNearestClinic = () => {
+    if (emergencyClinics.length === 0) {
+      Alert.alert(
+        'No Clinics Found',
+        'No emergency clinics found nearby. Please try calling emergency hotlines or expanding your search radius.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Call Hotline',
+            onPress: () => handleEmergencyCall('1-800-VET-HELP'),
+            style: 'destructive'
+          }
+        ]
+      );
+      return;
+    }
+    
+    // Get the nearest clinic (first in sorted array)
+    const nearestClinic = emergencyClinics[0];
+    
+    // Show clinic details and options
+    Alert.alert(
+      `Nearest Emergency Clinic: ${nearestClinic.name}`,
+      `${nearestClinic.address}\n${nearestClinic.city}, ${nearestClinic.state}\n\nDistance: ${nearestClinic.distance.toFixed(1)} km\nPhone: ${nearestClinic.phone}${nearestClinic.isOpen24Hours ? '\n\n🟢 Open 24/7' : ''}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Call', 
+          onPress: () => handleEmergencyCall(nearestClinic.phone),
+          style: 'destructive'
+        },
+        { 
+          text: 'Directions', 
+          onPress: () => handleDirections(nearestClinic)
+        }
+      ]
     );
+  };
+
+  const calculateDistance = (clinic: EmergencyClinicWithDistance): number | undefined => {
+    // Distance is already calculated in the clinic object
+    return clinic.distance;
   };
 
   const EmergencyActionCard = ({ 
@@ -136,25 +242,35 @@ const EmergencyCareScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const EmergencyClinicCard = ({ clinic }: { clinic: Clinic }) => {
+  const EmergencyClinicCard = ({ clinic, isNearest = false }: { clinic: EmergencyClinicWithDistance; isNearest?: boolean }) => {
     const distance = calculateDistance(clinic);
-    const isOpen24Hours = clinic.services.some(service => 
-      service.toLowerCase().includes('24/7') || service.toLowerCase().includes('24 hour')
-    );
 
     return (
-      <View style={styles.clinicCard}>
+      <View style={[styles.clinicCard, isNearest && styles.nearestClinicCard]}>
         <View style={styles.clinicHeader}>
-          <Text style={styles.clinicName}>{clinic.name}</Text>
-          {isOpen24Hours && (
+          <View style={styles.clinicNameContainer}>
+            <Text style={styles.clinicName}>{clinic.name}</Text>
+            {isNearest && (
+              <View style={styles.nearestBadge}>
+                <Ionicons name="location" size={12} color="white" />
+                <Text style={[styles.nearestBadgeText, { marginLeft: 4 }]}>Nearest</Text>
+              </View>
+            )}
+          </View>
+          {clinic.isOpen24Hours && (
             <View style={styles.openBadge}>
               <Text style={styles.openBadgeText}>24/7</Text>
+            </View>
+          )}
+          {!clinic.isOpen24Hours && clinic.isCurrentlyOpen && (
+            <View style={styles.openNowBadge}>
+              <Text style={styles.openNowBadgeText}>Open Now</Text>
             </View>
           )}
         </View>
         
         <Text style={styles.clinicAddress}>{clinic.address}</Text>
-        {distance && (
+        {distance !== undefined && distance > 0 && (
           <Text style={styles.clinicDistance}>{distance.toFixed(1)} km away</Text>
         )}
         
@@ -240,13 +356,14 @@ const EmergencyCareScreen: React.FC = () => {
           
           <EmergencyActionCard
             title="Find Nearest Emergency Clinic"
-            description="Get directions to closest 24/7 clinic"
+            description={emergencyClinics.length > 0 && emergencyClinics[0].distance > 0
+              ? `${emergencyClinics[0].distance.toFixed(1)} km away - ${emergencyClinics[0].name}`
+              : emergencyClinics.length > 0
+              ? `Nearest: ${emergencyClinics[0].name}`
+              : "Get directions to closest 24/7 clinic"
+            }
             iconName="location"
-            onPress={() => {
-              if (emergencyClinics.length > 0) {
-                handleDirections(emergencyClinics[0]);
-              }
-            }}
+            onPress={handleFindNearestClinic}
             color="#3b82f6"
           />
         </View>
@@ -262,8 +379,12 @@ const EmergencyCareScreen: React.FC = () => {
               <Text style={styles.emptyStateSubText}>Try expanding your search radius</Text>
             </View>
           ) : (
-            emergencyClinics.map((clinic) => (
-              <EmergencyClinicCard key={clinic.id} clinic={clinic} />
+            emergencyClinics.map((clinic, index) => (
+              <EmergencyClinicCard 
+                key={clinic.id} 
+                clinic={clinic} 
+                isNearest={index === 0 && userLocation !== null}
+              />
             ))
           )}
         </View>
@@ -279,24 +400,24 @@ const EmergencyCareScreen: React.FC = () => {
               <Text style={styles.emptyStateSubText}>Call emergency clinics directly</Text>
             </View>
           ) : (
-            emergencyVets.map((vet) => (
-              <VetCard
-                key={vet.id}
-                veterinarian={vet}
-                distance={userLocation ? locationService.calculateDistance(
-                  userLocation.latitude,
-                  userLocation.longitude,
-                  // Note: We'd need vet location coordinates for accurate distance
-                  0, 0 // Placeholder
-                ) : undefined}
-                onPress={() => navigation.navigate('VetProfile', { veterinarianId: vet.id })}
-                onBookAppointment={() => navigation.navigate('BookAppointment', {
-                  veterinarianId: vet.id,
-                  clinicId: vet.clinic_id
-                })}
-                onCall={() => handleEmergencyCall(vet.phone)}
-              />
-            ))
+            emergencyVets.map((vet) => {
+              // Distance is already calculated in loadEmergencyServices if available
+              const distance = (vet as any).distance;
+
+              return (
+                <VetCard
+                  key={vet.id}
+                  veterinarian={vet}
+                  distance={distance}
+                  onPress={() => navigation.navigate('VetProfile', { veterinarianId: vet.id })}
+                  onBookAppointment={() => navigation.navigate('BookAppointment', {
+                    veterinarianId: vet.id,
+                    clinicId: vet.clinic_id
+                  })}
+                  onCall={() => handleEmergencyCall(vet.phone)}
+                />
+              );
+            })
           )}
         </View>
 
@@ -444,17 +565,47 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  nearestClinicCard: {
+    borderColor: '#3b82f6',
+    borderWidth: 2,
+    backgroundColor: '#eff6ff',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   clinicHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  clinicName: {
+  clinicNameContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginRight: 8,
+  },
+  clinicName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    marginRight: 8,
+  },
+  nearestBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nearestBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   openBadge: {
     backgroundColor: '#10b981',
@@ -463,6 +614,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   openBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  openNowBadge: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  openNowBadgeText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#ffffff',

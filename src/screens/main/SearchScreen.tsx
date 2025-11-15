@@ -16,7 +16,6 @@ import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import VetCard from '../../components/VetCard';
 import { Veterinarian, Clinic, RootStackParamList } from '../../types';
-import { mockVeterinarians, getVeterinariansBySpecialty, getEmergencyVeterinarians, getTopRatedVeterinarians } from '../../data/mockVeterinarians';
 import { mockClinics } from '../../data/mockClinics';
 import { supabase } from '../../config/supabase';
 import { supabaseVetService } from '../../services/supabaseVetService';
@@ -81,19 +80,27 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
     setTopRatedLoading(true);
     try {
       console.log('Loading top-rated veterinarians from Supabase...');
-      const vets = await supabaseVetService.getTopRatedVeterinarians(3);
+      // Load top 3 vets with minimum 4.0 rating and at least 3 reviews for quality
+      let vets = await supabaseVetService.getTopRatedVeterinarians(3, 4.0, 3);
       
+      // If no results with strict filters, try with less strict filters
       if (vets.length === 0) {
-        console.log('No top-rated vets found in database, using mock data as fallback');
-        setTopRatedVets(getTopRatedVeterinarians(3));
-      } else {
-        console.log(`Loaded ${vets.length} top-rated veterinarians from Supabase database`);
-        setTopRatedVets(vets);
+        console.log('No vets found with strict filters, trying with relaxed filters...');
+        vets = await supabaseVetService.getTopRatedVeterinarians(3, 3.5, 1);
       }
+      
+      // If still no results, try without any filters (just top rated)
+      if (vets.length === 0) {
+        console.log('No vets found with relaxed filters, trying without filters...');
+        vets = await supabaseVetService.getTopRatedVeterinarians(3);
+      }
+      
+      console.log(`Loaded ${vets.length} top-rated veterinarians from Supabase database`);
+      setTopRatedVets(vets);
     } catch (error) {
       console.error('Error loading top-rated veterinarians from Supabase:', error);
-      console.log('Using mock data as fallback due to error');
-      setTopRatedVets(getTopRatedVeterinarians(3));
+      // Show empty array - fallback UI will be displayed
+      setTopRatedVets([]);
     } finally {
       setTopRatedLoading(false);
     }
@@ -155,36 +162,10 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
     try {
       console.log('Searching veterinarians for query:', searchQuery);
       
-      // Try searching with Supabase first
-      let results = await supabaseVetService.searchVeterinarians(searchQuery);
+      // Use Supabase search (uses client-side filtering for case-insensitive matching)
+      const results = await supabaseVetService.searchVeterinarians(searchQuery);
       
-      // If no results from database, fall back to mock data
-      if (results.length === 0) {
-        console.log('No results from Supabase, using mock data as fallback');
-        
-        // Search by name in mock data
-        const nameResults = mockVeterinarians.filter(vet =>
-          vet.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-        // Search by specialty in mock data
-        const specialtyResults = mockVeterinarians.filter(vet =>
-          vet.specialties.some(specialty =>
-            specialty.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        );
-
-        // Combine and deduplicate results
-        const combinedResults = [...nameResults, ...specialtyResults];
-        results = combinedResults.filter((vet, index) =>
-          combinedResults.findIndex(v => v.id === vet.id) === index
-        );
-
-        // Sort by rating
-        results.sort((a, b) => b.rating - a.rating);
-      } else {
-        console.log(`Found ${results.length} veterinarians from Supabase database`);
-      }
+      console.log(`Found ${results.length} veterinarians from Supabase database`);
 
       setSearchResults(results);
       setShowResults(true);
@@ -195,27 +176,9 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
       }
     } catch (error) {
       console.error('Error searching veterinarians:', error);
-      console.log('Using mock data as fallback due to error');
-      
-      // Fallback to mock data search on error
-      const nameResults = mockVeterinarians.filter(vet =>
-        vet.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      const specialtyResults = mockVeterinarians.filter(vet =>
-        vet.specialties.some(specialty =>
-          specialty.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-      const combinedResults = [...nameResults, ...specialtyResults];
-      const results = combinedResults.filter((vet, index) =>
-        combinedResults.findIndex(v => v.id === vet.id) === index
-      );
-      results.sort((a, b) => b.rating - a.rating);
-      
-      setSearchResults(results);
+      setSearchResults([]);
       setShowResults(true);
-      
-      Alert.alert('Search Notice', 'Using offline data. Please check your connection for latest results.');
+      Alert.alert('Search Error', 'Unable to search veterinarians. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -229,47 +192,25 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
       let results: Veterinarian[] = [];
 
       if (specialty === 'emergency') {
-        // Use Supabase emergency vets method
+        // Use Supabase emergency vets method (service handles fallbacks internally)
         results = await supabaseVetService.getEmergencyVeterinarians();
-        
-        // Fallback to mock data if no results
-        if (results.length === 0) {
-          console.log('No emergency vets from Supabase, using mock data');
-          results = getEmergencyVeterinarians();
-        }
       } else {
-        // Use Supabase specialty search
+        // Use Supabase specialty search (service handles mapping and fallbacks internally)
         results = await supabaseVetService.getVeterinariansBySpecialty(specialty);
-        
-        // Fallback to mock data if no results
-        if (results.length === 0) {
-          console.log(`No ${specialty} vets from Supabase, using mock data`);
-          results = getVeterinariansBySpecialty(specialty);
-        }
       }
 
-      console.log(`Found ${results.length} veterinarians for ${specialty}`);
+      console.log(`Found ${results.length} veterinarians for ${specialty} from Supabase`);
       
       setSearchResults(results);
       setShowResults(true);
       setSearchQuery(specialty.charAt(0).toUpperCase() + specialty.slice(1));
     } catch (error) {
       console.error('Error filtering by specialty:', error);
-      
-      // Fallback to mock data on error
-      let results: Veterinarian[] = [];
-      switch (specialty) {
-        case 'emergency':
-          results = getEmergencyVeterinarians();
-          break;
-        default:
-          results = getVeterinariansBySpecialty(specialty);
-          break;
-      }
-      
-      setSearchResults(results);
+      // Service methods handle fallbacks, but show empty results if everything fails
+      setSearchResults([]);
       setShowResults(true);
       setSearchQuery(specialty.charAt(0).toUpperCase() + specialty.slice(1));
+      Alert.alert('Search Error', 'Unable to load veterinarians. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -280,28 +221,21 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
     try {
       console.log('Searching by specialty:', specialty);
       
-      // Use Supabase specialty search
-      let results = await supabaseVetService.getVeterinariansBySpecialty(specialty);
-      
-      // Fallback to mock data if no results
-      if (results.length === 0) {
-        console.log(`No ${specialty} vets from Supabase, using mock data`);
-        results = getVeterinariansBySpecialty(specialty);
-      }
+      // Use Supabase specialty search (service handles mapping and fallbacks internally)
+      const results = await supabaseVetService.getVeterinariansBySpecialty(specialty);
 
-      console.log(`Found ${results.length} veterinarians for ${specialty} specialty`);
+      console.log(`Found ${results.length} veterinarians for ${specialty} specialty from Supabase`);
       
       setSearchResults(results);
       setShowResults(true);
       setSearchQuery(specialty);
     } catch (error) {
       console.error('Error searching by specialty:', error);
-      
-      // Fallback to mock data on error
-      const results = getVeterinariansBySpecialty(specialty);
-      setSearchResults(results);
+      // Service methods handle fallbacks, but show empty results if everything fails
+      setSearchResults([]);
       setShowResults(true);
       setSearchQuery(specialty);
+      Alert.alert('Search Error', 'Unable to load veterinarians. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -534,7 +468,7 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
               <ActivityIndicator size="large" color="#3b82f6" />
               <Text className="text-gray-600 mt-2">Loading top-rated vets...</Text>
             </View>
-          ) : (
+          ) : topRatedVets.length > 0 ? (
             topRatedVets.map((vet) => {
               const clinic = mockClinics.find(c => c.id === vet.clinic_id);
               const distance = calculateDistance(vet.id);
@@ -553,6 +487,22 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
                 />
               );
             })
+          ) : (
+            <View className="bg-gray-50 rounded-xl p-6 items-center justify-center border border-gray-200">
+              <Ionicons name="star-outline" size={48} color="#d1d5db" />
+              <Text className="text-lg font-semibold text-gray-900 mt-4">
+                No Top-Rated Vets Yet
+              </Text>
+              <Text className="text-gray-600 text-center mt-2 px-4">
+                We're working on finding the best veterinarians for you. Check back soon!
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation?.navigate('VetList')}
+                className="mt-4 bg-blue-500 px-6 py-3 rounded-lg"
+              >
+                <Text className="text-white font-semibold">Browse All Vets</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </ScrollView>
