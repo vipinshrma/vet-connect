@@ -325,7 +325,8 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
               renderItem={renderSearchResult}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingVertical: 8 }}
+              contentContainerStyle={{ paddingVertical: 12, paddingBottom: 24 }}
+              ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
             />
           )}
         </View>
@@ -384,13 +385,18 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
           <Text className="text-lg font-semibold text-gray-900 mb-4">
             Quick Filters
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 16 }}
+          >
             <View className="flex-row">
               {quickFilters.map((filter, index) => (
                 <TouchableOpacity
                   key={index}
                   onPress={() => handleQuickFilter(filter.specialty)}
-                  className="bg-blue-50 px-4 py-3 rounded-lg flex-row items-center min-w-24 mr-3"
+                  className="bg-blue-50 px-4 py-3 rounded-lg flex-row items-center min-w-24"
+                  style={{ marginRight: index < quickFilters.length - 1 ? 12 : 0 }}
                 >
                   <Ionicons name={filter.icon as any} size={18} color="#3b82f6" />
                   <Text className="text-blue-700 font-medium ml-2">
@@ -408,12 +414,13 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
             <Text className="text-lg font-semibold text-gray-900 mb-4">
               Recent Searches
             </Text>
-            <View className="flex-row flex-wrap">
+            <View className="flex-row flex-wrap" style={{ marginHorizontal: -4, marginVertical: -4 }}>
               {recentSearches.map((search, index) => (
                 <TouchableOpacity
                   key={index}
                   onPress={() => handleRecentSearch(search)}
-                  className="bg-gray-100 px-3 py-2 rounded-full mr-2 mb-2 flex-row items-center"
+                  className="bg-gray-100 px-3 py-2 rounded-full flex-row items-center"
+                  style={{ marginHorizontal: 4, marginVertical: 4 }}
                 >
                   <Ionicons name="time-outline" size={16} color="#6b7280" />
                   <Text className="text-gray-700 ml-2">{search}</Text>
@@ -428,12 +435,13 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
           <Text className="text-lg font-semibold text-gray-900 mb-4">
             Featured Specialties
           </Text>
-          <View className="space-y-3">
+          <View>
             {featuredSpecialties.map((specialty, index) => (
               <TouchableOpacity
                 key={index}
                 onPress={() => handleSpecialtyPress(specialty.specialty)}
                 className="bg-white border border-gray-100 rounded-xl p-4 flex-row items-center shadow-sm"
+                style={{ marginBottom: index < featuredSpecialties.length - 1 ? 12 : 0 }}
               >
                 <View className={`w-12 h-12 ${specialty.color} rounded-xl flex items-center justify-center`}>
                   <Ionicons name={specialty.icon as any} size={24} color="white" />
@@ -454,7 +462,7 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
 
         {/* Top Rated Vets */}
         <View className="px-4 mb-8">
-          <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center justify-between mb-5">
             <Text className="text-lg font-semibold text-gray-900">
               Top Rated Vets
             </Text>
@@ -469,24 +477,26 @@ const SearchScreen: React.FC<SearchScreenProps> = () => {
               <Text className="text-gray-600 mt-2">Loading top-rated vets...</Text>
             </View>
           ) : topRatedVets.length > 0 ? (
-            topRatedVets.map((vet) => {
-              const clinic = mockClinics.find(c => c.id === vet.clinic_id);
-              const distance = calculateDistance(vet.id);
-              
-              return (
-                <VetCard
-                  key={vet.id}
-                  veterinarian={vet}
-                  clinic={clinic}
-                  distance={distance}
-                  onPress={() => navigation?.navigate('VetProfile', { veterinarianId: vet.id })}
-                  onBookAppointment={() => navigation?.navigate('BookAppointment', {
-                    veterinarianId: vet.id,
-                    clinicId: vet.clinic_id
-                  })}
-                />
-              );
-            })
+            <View>
+              {topRatedVets.map((vet) => {
+                const clinic = mockClinics.find(c => c.id === vet.clinic_id);
+                const distance = calculateDistance(vet.id);
+                
+                return (
+                  <VetCard
+                    key={vet.id}
+                    veterinarian={vet}
+                    clinic={clinic}
+                    distance={distance}
+                    onPress={() => navigation?.navigate('VetProfile', { veterinarianId: vet.id })}
+                    onBookAppointment={() => navigation?.navigate('BookAppointment', {
+                      veterinarianId: vet.id,
+                      clinicId: vet.clinic_id
+                    })}
+                  />
+                );
+              })}
+            </View>
           ) : (
             <View className="bg-gray-50 rounded-xl p-6 items-center justify-center border border-gray-200">
               <Ionicons name="star-outline" size={48} color="#d1d5db" />

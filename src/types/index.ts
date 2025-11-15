@@ -348,6 +348,14 @@ export type RootStackParamList = {
   PetProfile: { petId?: string };
   AppointmentDetails: { appointmentId: string };
   PetHealth: { petId: string };
+  EditUserProfile: undefined;
+  ServicesPricing: undefined;
+  Notifications: undefined;
+  Privacy: undefined;
+  ChangePassword: undefined;
+  DeleteAccount: undefined;
+  HelpCenter: undefined;
+  ContactSupport: undefined;
 };
 
 export type TabParamList = {
