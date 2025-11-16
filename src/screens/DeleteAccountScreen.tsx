@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
@@ -201,8 +203,17 @@ const DeleteAccountScreen: React.FC = () => {
           <Text className="text-lg font-semibold text-gray-900">Delete Account</Text>
         </View>
 
-        <ScrollView className="flex-1">
-          <View className="bg-white mx-4 mt-4 rounded-xl p-6 border border-red-200">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView 
+            className="flex-1"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
+            <View className="bg-white mx-4 mt-4 rounded-xl p-6 border border-red-200">
             <View className="items-center mb-6">
               <View className="w-16 h-16 bg-red-100 rounded-full items-center justify-center mb-4">
                 <Ionicons name="warning" size={32} color="#ef4444" />
@@ -275,7 +286,8 @@ const DeleteAccountScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -289,8 +301,17 @@ const DeleteAccountScreen: React.FC = () => {
         <Text className="text-lg font-semibold text-gray-900">Confirm Deletion</Text>
       </View>
 
-      <ScrollView className="flex-1">
-        <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
           <Text className="text-sm text-gray-600 mb-4">
             For security, please enter your password to confirm account deletion.
           </Text>
@@ -368,6 +389,7 @@ const DeleteAccountScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

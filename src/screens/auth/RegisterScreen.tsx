@@ -1,22 +1,22 @@
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator 
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppDispatch } from '../../store';
 import { registerUser } from '../../store/slices/authSlice';
-import { RegisterForm, UserType, AuthStackParamList } from '../../types';
+import { AuthStackParamList, RegisterForm, UserType } from '../../types';
 
 type RegisterNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -143,13 +143,11 @@ const RegisterScreen: React.FC = () => {
               <Text 
                 className="text-2xl font-inter-bold text-primary-700 text-center mb-3"
                 accessibilityRole="header"
-                accessibilityLevel={1}
               >
                 Create Account
               </Text>
               <Text 
                 className="text-base font-inter text-secondary-600 text-center leading-6"
-                accessibilityRole="text"
               >
                 Join VetConnect to find the best care for your pets
               </Text>
@@ -161,7 +159,6 @@ const RegisterScreen: React.FC = () => {
               <View accessibilityRole="radiogroup" accessibilityLabel="User type selection">
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-4"
-                  accessibilityRole="text"
                 >
                   I am a:
                 </Text>
@@ -185,7 +182,6 @@ const RegisterScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Full Name
                 </Text>
@@ -222,7 +218,6 @@ const RegisterScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Email
                 </Text>
@@ -260,7 +255,6 @@ const RegisterScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Phone Number
                 </Text>
@@ -297,7 +291,6 @@ const RegisterScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Password
                 </Text>
@@ -335,7 +328,6 @@ const RegisterScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Confirm Password
                 </Text>

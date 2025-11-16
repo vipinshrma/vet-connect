@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '../store';
-import { addPet, updatePet, deletePet, fetchUserPets } from '../store/slices/petSlice';
-import { PetForm, RootStackParamList } from '../types';
-import { petService } from '../services/petService';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import LoadingScreen from '../components/LoadingScreen';
+import { petService } from '../services/petService';
+import { AppDispatch, RootState } from '../store';
+import { addPet, deletePet, fetchUserPets, updatePet } from '../store/slices/petSlice';
+import { PetForm, RootStackParamList } from '../types';
 
 type PetProfileScreenRouteProp = RouteProp<RootStackParamList, 'PetProfile'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -211,11 +211,11 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Pet Photo Section */}
         <View className="bg-white px-6 py-8 items-center border-b border-gray-100">
-          <View className="w-32 h-32 rounded-full bg-blue-50 items-center justify-center mb-4 relative">
+          <View className="w-32 h-32 rounded-full bg-blue-50 items-center justify-center mb-6 relative overflow-hidden">
             {isUploadingPhoto ? (
               // Upload loading state
               <View className="w-32 h-32 rounded-full bg-blue-100 items-center justify-center">
-                <View className="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                <View className="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent" />
               </View>
             ) : pet?.photoURL ? (
               <Image
@@ -237,25 +237,26 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
             {/* Upload overlay when uploading */}
             {isUploadingPhoto && pet?.photoURL && (
               <View className="absolute inset-0 w-32 h-32 rounded-full bg-black/50 items-center justify-center">
-                <View className="w-8 h-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                <View className="w-8 h-8 rounded-full border-2 border-white border-t-transparent" />
               </View>
             )}
           </View>
           
           <TouchableOpacity 
             onPress={handlePhotoUpload}
-            className={`px-6 py-2 rounded-lg flex-row items-center ${
+            className={`px-6 py-3 rounded-lg flex-row items-center justify-center ${
               isUploadingPhoto 
                 ? 'bg-gray-400' 
                 : 'bg-blue-600'
             }`}
             disabled={isSaving || isUploadingPhoto}
+            style={{ minWidth: 140 }}
           >
             {isUploadingPhoto ? (
-              <>
-                <View className="w-4 h-4 rounded-full border border-white border-t-transparent animate-spin mr-2" />
+              <View className="flex-row items-center">
+                <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />
                 <Text className="text-white font-medium">Uploading...</Text>
-              </>
+              </View>
             ) : (
               <Text className="text-white font-medium">
                 {pet?.photoURL ? 'Change Photo' : 'Add Photo'}
@@ -265,34 +266,36 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
         </View>
 
         {/* Form */}
-        <View className="px-6 py-8 space-y-8">
+        <View className="px-6 py-6">
           {/* Name */}
-          <View className="mb-2">
-            <Text className="text-gray-700 font-medium mb-2">Pet Name *</Text>
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-3 text-base">Pet Name *</Text>
             <TextInput
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
               placeholder="Enter your pet's name"
-              className="bg-white px-4 py-3 rounded-lg border border-gray-200"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-base"
             />
           </View>
 
           {/* Species */}
-          <View className="mb-2">
-            <Text className="text-gray-700 font-medium mb-2">Species *</Text>
-            <View className="flex-row flex-wrap gap-2">
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-3 text-base">Species *</Text>
+            <View className="flex-row flex-wrap" style={{ marginHorizontal: -4 }}>
               {['dog', 'cat', 'bird', 'rabbit', 'other'].map((species) => (
                 <TouchableOpacity
                   key={species}
                   onPress={() => setFormData({ ...formData, species: species as any })}
-                  className={`px-4 py-2 rounded-lg border ${
+                  className={`px-4 py-2.5 rounded-lg border ${
                     formData.species === species
                       ? 'bg-blue-600 border-blue-600'
                       : 'bg-white border-gray-200'
                   }`}
+                  style={{ marginHorizontal: 4, marginVertical: 4 }}
                 >
                   <Text
-                    className={`font-medium ${
+                    className={`font-medium text-sm ${
                       formData.species === species ? 'text-white' : 'text-gray-700'
                     }`}
                   >
@@ -304,56 +307,59 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {/* Breed */}
-          <View className="mb-2">
-            <Text className="text-gray-700 font-medium mb-2">Breed</Text>
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-3 text-base">Breed</Text>
             <TextInput
               value={formData.breed}
               onChangeText={(text) => setFormData({ ...formData, breed: text })}
               placeholder="Enter breed (optional)"
-              className="bg-white px-4 py-3 rounded-lg border border-gray-200"
+              placeholderTextColor="#9CA3AF"
+              className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-base"
             />
           </View>
 
           {/* Age and Weight Row */}
-          <View className="flex-row space-x-4 mb-2 gap-x-2">
+          <View className="flex-row mb-6" style={{ gap: 12 }}>
             <View className="flex-1">
-              <Text className="text-gray-700 font-medium mb-2">Age (years) *</Text>
+              <Text className="text-gray-700 font-semibold mb-3 text-base">Age (years) *</Text>
               <TextInput
                 value={formData.age.toString()}
                 onChangeText={(text) => setFormData({ ...formData, age: parseFloat(text) || 0 })}
                 placeholder="0"
+                placeholderTextColor="#9CA3AF"
                 keyboardType="numeric"
-                className="bg-white px-4 py-3 rounded-lg border border-gray-200"
+                className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-base"
               />
             </View>
             <View className="flex-1">
-              <Text className="text-gray-700 font-medium mb-2">Weight (kg)</Text>
+              <Text className="text-gray-700 font-semibold mb-3 text-base">Weight (kg)</Text>
               <TextInput
                 value={formData.weight?.toString() || ''}
                 onChangeText={(text) => setFormData({ ...formData, weight: parseFloat(text) || undefined })}
                 placeholder="Optional"
+                placeholderTextColor="#9CA3AF"
                 keyboardType="numeric"
-                className="bg-white px-4 py-3 rounded-lg border border-gray-200"
+                className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-base"
               />
             </View>
           </View>
 
           {/* Gender */}
-          <View className="mb-2">
-            <Text className="text-gray-700 font-medium mb-2">Gender *</Text>
-            <View className="flex-row space-x-4">
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-3 text-base">Gender *</Text>
+            <View className="flex-row" style={{ gap: 12 }}>
               {['male', 'female'].map((gender) => (
                 <TouchableOpacity
                   key={gender}
                   onPress={() => setFormData({ ...formData, gender: gender as any })}
-                  className={`flex-1 py-3 rounded-lg border ${
+                  className={`flex-1 py-3 rounded-xl border ${
                     formData.gender === gender
                       ? 'bg-blue-600 border-blue-600'
                       : 'bg-white border-gray-200'
                   }`}
                 >
                   <Text
-                    className={`text-center font-medium ${
+                    className={`text-center font-semibold text-base ${
                       formData.gender === gender ? 'text-white' : 'text-gray-700'
                     }`}
                   >
@@ -365,38 +371,44 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {/* Medical History */}
-          <View className="mb-2">
-            <Text className="text-gray-700 font-medium mb-2">Medical History</Text>
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-3 text-base">Medical History</Text>
             <TextInput
               value={formData.medicalHistory}
               onChangeText={(text) => setFormData({ ...formData, medicalHistory: text })}
               placeholder="Enter any relevant medical history, allergies, or conditions"
+              placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              className="bg-white px-4 py-3 rounded-lg border border-gray-200"
+              className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-base"
+              style={{ minHeight: 100 }}
             />
           </View>
 
           {/* Vaccination Section */}
           {isEditing && pet?.vaccinations && pet.vaccinations.length > 0 && (
-            <View>
-              <Text className="text-gray-700 font-medium mb-2">Vaccinations</Text>
-              <View className="bg-white rounded-lg border border-gray-200 p-4">
-                {pet.vaccinations.map((vaccination) => (
-                  <View key={vaccination.id} className="flex-row justify-between items-center py-2">
-                    <View>
-                      <Text className="font-medium">{vaccination.name}</Text>
-                      <Text className="text-gray-600 text-sm">
+            <View className="mb-6">
+              <Text className="text-gray-700 font-semibold mb-3 text-base">Vaccinations</Text>
+              <View className="bg-white rounded-xl border border-gray-200 p-4">
+                {pet.vaccinations.map((vaccination, index) => (
+                  <View 
+                    key={vaccination.id} 
+                    className="flex-row justify-between items-start py-3"
+                    style={{ borderBottomWidth: index < pet.vaccinations.length - 1 ? 1 : 0, borderBottomColor: '#E5E7EB' }}
+                  >
+                    <View className="flex-1 mr-3">
+                      <Text className="font-semibold text-gray-900 text-base mb-1">{vaccination.name}</Text>
+                      <Text className="text-gray-600 text-sm mb-1">
                         Given: {new Date(vaccination.date).toLocaleDateString()}
                       </Text>
                       {vaccination.nextDue && (
-                        <Text className="text-blue-600 text-sm">
+                        <Text className="text-blue-600 text-sm font-medium">
                           Next due: {new Date(vaccination.nextDue).toLocaleDateString()}
                         </Text>
                       )}
                     </View>
-                    <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+                    <Ionicons name="shield-checkmark" size={24} color="#10B981" />
                   </View>
                 ))}
               </View>
@@ -406,12 +418,15 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
 
         {/* Delete Button (for editing) */}
         {isEditing && (
-          <View className="px-6 pb-6">
+          <View className="px-6 pb-8 pt-4">
             <TouchableOpacity
               onPress={handleDelete}
-              className="bg-red-50 py-4 rounded-lg border border-red-200"
+              className="bg-red-50 py-4 rounded-xl border border-red-200"
             >
-              <Text className="text-red-600 font-medium text-center">Delete Pet</Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                <Text className="text-red-600 font-semibold text-center ml-2 text-base">Delete Pet</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}

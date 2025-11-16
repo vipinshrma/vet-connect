@@ -137,15 +137,11 @@ After setup, you'll have:
 - **Golden Gate Animal Hospital** - Cardiology & specialties
 
 ### Test Login Credentials
-**Pet Owners:**
-- john@example.com / password123
-- sarah@example.com / password123  
-- mike@example.com / password123
+**Pet Owner:**
+- hemantshrma801@gmail.com / Test@1234
 
-**Veterinarians:**
-- dr.smith@happypaws.com / vetpass123
-- dr.chen@petcare.com / vetpass123
-- dr.rodriguez@gganimalhospital.com / vetpass123
+**Veterinarian:**
+- pakiko9332@fermiro.com / Test@1234
 
 ### Sample Pets
 - **Buddy** (John's Golden Retriever)

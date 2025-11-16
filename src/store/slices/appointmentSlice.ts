@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Appointment, AppointmentForm, TimeSlot } from '../../types';
 import { supabaseAppointmentService } from '../../services/supabaseAppointmentService';
+import { serializeAppointment, serializeAppointments } from '../../utils/dateSerialization';
 
 interface AppointmentState {
   appointments: Appointment[];
@@ -24,7 +25,8 @@ export const fetchUserAppointments = createAsyncThunk(
   async (userId: string, { rejectWithValue }) => {
     try {
       const appointments = await supabaseAppointmentService.getUserAppointments(userId);
-      return appointments;
+      // Serialize dates before returning to Redux
+      return serializeAppointments(appointments);
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -36,7 +38,8 @@ export const fetchVeterinarianAppointments = createAsyncThunk(
   async (vetId: string, { rejectWithValue }) => {
     try {
       const appointments = await supabaseAppointmentService.getVetAppointments(vetId);
-      return appointments;
+      // Serialize dates before returning to Redux
+      return serializeAppointments(appointments);
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -66,7 +69,8 @@ export const bookAppointment = createAsyncThunk(
         startTime: appointmentData.timeSlotId.split('-')[0] || '09:00',
         endTime: appointmentData.timeSlotId.split('-')[1] || '09:30',
       });
-      return appointment;
+      // Serialize dates before returning to Redux
+      return serializeAppointment(appointment);
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -106,7 +110,7 @@ const appointmentSlice = createSlice({
       state.error = null;
     },
     setSelectedAppointment: (state, action: PayloadAction<Appointment>) => {
-      state.selectedAppointment = action.payload;
+      state.selectedAppointment = serializeAppointment(action.payload);
     },
     clearSelectedAppointment: (state) => {
       state.selectedAppointment = null;
@@ -124,6 +128,7 @@ const appointmentSlice = createSlice({
       })
       .addCase(fetchUserAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
+        // Payload is already serialized in the thunk
         state.appointments = action.payload;
       })
       .addCase(fetchUserAppointments.rejected, (state, action) => {
@@ -137,6 +142,7 @@ const appointmentSlice = createSlice({
       })
       .addCase(fetchVeterinarianAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
+        // Payload is already serialized in the thunk
         state.appointments = action.payload;
       })
       .addCase(fetchVeterinarianAppointments.rejected, (state, action) => {
@@ -163,6 +169,7 @@ const appointmentSlice = createSlice({
       })
       .addCase(bookAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
+        // Payload is already serialized in the thunk
         state.appointments.push(action.payload);
         state.availableSlots = [];
       })
@@ -182,12 +189,15 @@ const appointmentSlice = createSlice({
       })
       // Reschedule appointment
       .addCase(rescheduleAppointment.fulfilled, (state, action) => {
+        // Note: rescheduleAppointment thunk should serialize before returning
+        // For now, serialize here as a safety measure
+        const serialized = serializeAppointment(action.payload);
         const index = state.appointments.findIndex(apt => apt.id === action.payload.id);
         if (index !== -1) {
-          state.appointments[index] = action.payload;
+          state.appointments[index] = serialized;
         }
         if (state.selectedAppointment?.id === action.payload.id) {
-          state.selectedAppointment = action.payload;
+          state.selectedAppointment = serialized;
         }
       });
   },

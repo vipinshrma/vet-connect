@@ -83,14 +83,11 @@ INSERT INTO pets (name, species, breed, age, weight, gender, photo_url, medical_
 
 After migration, you can test the app with these credentials:
 
-### Pet Owners:
-- **Email:** john@example.com **Password:** password123
-- **Email:** sarah@example.com **Password:** password123
-- **Email:** mike@example.com **Password:** password123
+### Pet Owner:
+- **Email:** hemantshrma801@gmail.com **Password:** Test@1234
 
-### Veterinarians:
-- **Email:** dr.smith@happypaws.com **Password:** vetpass123
-- **Email:** dr.chen@petcare.com **Password:** vetpass123
+### Veterinarian:
+- **Email:** pakiko9332@fermiro.com **Password:** Test@1234
 
 ## Verification
 

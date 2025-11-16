@@ -15,7 +15,6 @@ const LoadingScreen: React.FC = () => {
         <Text 
           className="text-2xl font-inter-bold text-primary-700 text-center mb-3"
           accessibilityRole="header"
-          accessibilityLevel={1}
         >
           VetConnect
         </Text>
@@ -23,7 +22,6 @@ const LoadingScreen: React.FC = () => {
         {/* Tagline */}
         <Text 
           className="text-base font-inter text-secondary-600 text-center mb-8 leading-6"
-          accessibilityRole="text"
         >
           Connecting pets with caring professionals
         </Text>
@@ -39,7 +37,6 @@ const LoadingScreen: React.FC = () => {
         {/* Loading Text */}
         <Text 
           className="text-sm font-inter text-secondary-500 text-center mt-4"
-          accessibilityRole="text"
         >
           Loading...
         </Text>

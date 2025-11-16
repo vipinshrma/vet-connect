@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  FlatList,
-  Alert,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDispatch } from 'react-redux';
-import { Ionicons } from '@expo/vector-icons';
 import VetCard from '../../components/VetCard';
-import { Veterinarian, Clinic, RootStackParamList } from '../../types';
-import { mockClinics } from '../../data/mockClinics';
 import { supabase } from '../../config/supabase';
+import { mockClinics } from '../../data/mockClinics';
 import { supabaseVetService } from '../../services/supabaseVetService';
 import { AppDispatch } from '../../store';
 import { logoutUser } from '../../store/slices/authSlice';
+import { RootStackParamList, Veterinarian } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 

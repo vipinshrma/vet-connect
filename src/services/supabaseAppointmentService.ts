@@ -9,13 +9,20 @@ type AppointmentUpdate = Database['public']['Tables']['appointments']['Update'];
 export class SupabaseAppointmentService {
   // Convert database row to app Appointment type
   private mapToAppointment(row: AppointmentRow): Appointment {
+    // Helper to safely create Date from database field
+    const safeDate = (dateValue: string | null | undefined): Date => {
+      if (!dateValue) return new Date();
+      const date = new Date(dateValue);
+      return isNaN(date.getTime()) ? new Date() : date;
+    };
+
     return {
       id: row.id,
       petId: row.pet_id,
       veterinarianId: row.veterinarian_id,
       clinicId: row.clinic_id,
       ownerId: row.owner_id,
-      date: new Date(row.appointment_date),
+      date: safeDate(row.appointment_date),
       timeSlot: {
         id: `${row.start_time}-${row.end_time}`,
         startTime: row.start_time,
@@ -27,8 +34,8 @@ export class SupabaseAppointmentService {
       notes: row.notes || undefined,
       prescription: row.prescription || undefined,
       cost: row.cost || undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      createdAt: safeDate(row.created_at),
+      updatedAt: safeDate(row.updated_at),
     };
   }
 

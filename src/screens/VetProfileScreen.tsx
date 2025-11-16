@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -31,16 +32,7 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (veterinarianId) {
-      loadVeterinarianData();
-    } else {
-      setError('No veterinarian ID provided');
-      setLoading(false);
-    }
-  }, [veterinarianId]);
-
-  const loadVeterinarianData = async () => {
+  const loadVeterinarianData = useCallback(async () => {
     if (!veterinarianId) {
       setError('No veterinarian ID provided');
       return;
@@ -49,9 +41,9 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
     try {
       setLoading(true);
       setError(null);
+
       
       const vet = await supabaseVetService.getVeterinarianById(veterinarianId);
-      console.log("vet", vet);
       
       if (vet) {
         setVeterinarian(vet);
@@ -82,7 +74,25 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
     } finally {
       setLoading(false);
     }
-  };
+  }, [veterinarianId]);
+
+  useEffect(() => {
+    if (veterinarianId) {
+      loadVeterinarianData();
+    } else {
+      setError('No veterinarian ID provided');
+      setLoading(false);
+    }
+  }, [veterinarianId, loadVeterinarianData]);
+
+  // Refresh data when screen comes into focus (e.g., after editing)
+  useFocusEffect(
+    useCallback(() => {
+      if (veterinarianId) {
+        loadVeterinarianData();
+      }
+    }, [veterinarianId, loadVeterinarianData])
+  );
 
   const handleCall = () => {
     if (veterinarian && veterinarian.phone) {
@@ -599,9 +609,9 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
         <View className="bg-white mx-4 rounded-xl p-4 mb-4 shadow-sm">
           <Text className="text-lg font-semibold text-gray-900 mb-3">Specialties</Text>
           <View className="flex-row flex-wrap">
-            {veterinarian?.specialties && veterinarian.specialties.length > 0 ? (
+            {veterinarian?.specialties && Array.isArray(veterinarian.specialties) && veterinarian.specialties.length > 0 ? (
               veterinarian.specialties.map((specialty, index) => (
-                <View key={index} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
+                <View key={`${specialty}-${index}`} className="bg-blue-50 px-3 py-2 rounded-lg mr-2 mb-2">
                   <Text className="text-blue-700 font-medium">{specialty}</Text>
                 </View>
               ))
@@ -611,6 +621,11 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
               </View>
             )}
           </View>
+          {veterinarian?.specialties && (
+            <Text className="text-xs text-gray-500 mt-2">
+              {veterinarian.specialties.length} {veterinarian.specialties.length === 1 ? 'specialty' : 'specialties'}
+            </Text>
+          )}
         </View>
 
         {/* Clinic Services */}

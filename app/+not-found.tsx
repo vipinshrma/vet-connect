@@ -1,7 +1,7 @@
-import { Link, Stack } from 'expo-router';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Link, Stack } from 'expo-router';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function NotFoundScreen() {
   return (
@@ -10,7 +10,7 @@ export default function NotFoundScreen() {
       <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
         <View 
           className="flex-1 items-center justify-center px-6"
-          accessibilityRole="main"
+          accessible={true}
           accessibilityLabel="Page not found screen"
         >
           {/* Error Icon */}
@@ -26,14 +26,12 @@ export default function NotFoundScreen() {
           <Text 
             className="text-2xl font-inter-bold text-secondary-700 text-center mb-3"
             accessibilityRole="header"
-            accessibilityLevel={1}
           >
             Page Not Found
           </Text>
           
           <Text 
             className="text-base font-inter text-secondary-600 text-center leading-6 mb-8"
-            accessibilityRole="text"
           >
             Sorry, the page you're looking for doesn't exist or has been moved.
           </Text>
@@ -57,7 +55,6 @@ export default function NotFoundScreen() {
           <View className="mt-6">
             <Text 
               className="text-sm font-inter text-secondary-500 text-center"
-              accessibilityRole="text"
             >
               Or explore other sections of VetConnect
             </Text>

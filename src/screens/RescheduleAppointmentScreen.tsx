@@ -84,8 +84,14 @@ const RescheduleAppointmentScreen: React.FC<Props> = ({ route }) => {
       date.setDate(today.getDate() + i);
       
       // Skip current appointment date
-      if (appointment && date.toDateString() === appointment.date.toDateString()) {
-        continue;
+      if (appointment) {
+        // Handle both Date objects and ISO strings
+        const appointmentDate = appointment.date instanceof Date 
+          ? appointment.date 
+          : new Date(appointment.date as any);
+        if (date.toDateString() === appointmentDate.toDateString()) {
+          continue;
+        }
       }
       
       // Skip Sundays for non-emergency appointments

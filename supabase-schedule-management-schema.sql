@@ -102,42 +102,7 @@ CREATE POLICY slots_public_read ON time_slots
   FOR SELECT USING (true); -- Anyone can read available slots for booking
 
 -- Function to generate time slots for a date range based on schedule
-CREATE OR REPLACE FUNCTION generate_time_slots(
-  vet_id UUID,
-  start_date DATE,
-  end_date DATE
-) RETURNS INTEGER AS $$
-DECLARE
-  current_date DATE := start_date;
-  day_schedule RECORD;
-  exception_record RECORD;
-  current_time TIME;
-  slot_end_time TIME;
-  slot_duration INTERVAL;
-  slots_created INTEGER := 0;
-BEGIN
-  -- Loop through each date in the range
-  WHILE current_date <= end_date LOOP
-    -- Get the day of week (0 = Sunday)
-    DECLARE
-      day_num INTEGER := EXTRACT(DOW FROM current_date);
-    BEGIN
-      -- Check if there's an exception for this date
-      SELECT * INTO exception_record 
-      FROM schedule_exceptions 
-      WHERE veterinarian_id = vet_id AND exception_date = current_date;
-      
-      IF exception_record.exception_type = 'unavailable' THEN
-        -- Skip this date entirely
-        current_date := current_date + INTERVAL '1 day';
-        CONTINUE;
-      END IF;
-      
-      -- Get the regular schedule for this day
-      SELECT * INTO day_schedule 
-      FROM veterinarian_schedules 
-      WHERE veterinarian_id = vet_id 
-      AND day_of_week = day_num 
+ = day_num 
       AND is_active = true
       AND is_working = true;
       
@@ -202,7 +167,42 @@ BEGIN
     
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
-    -- Mark slot as available when appointment is deleted
+    -- Mark slCREATE OR REPLACE FUNCTION generate_time_slots(
+  vet_id UUID,
+  start_date DATE,
+  end_date DATE
+) RETURNS INTEGER AS $$
+DECLARE
+  current_date DATE := start_date;
+  day_schedule RECORD;
+  exception_record RECORD;
+  current_time TIME;
+  slot_end_time TIME;
+  slot_duration INTERVAL;
+  slots_created INTEGER := 0;
+BEGIN
+  -- Loop through each date in the range
+  WHILE current_date <= end_date LOOP
+    -- Get the day of week (0 = Sunday)
+    DECLARE
+      day_num INTEGER := EXTRACT(DOW FROM current_date);
+    BEGIN
+      -- Check if there's an exception for this date
+      SELECT * INTO exception_record 
+      FROM schedule_exceptions 
+      WHERE veterinarian_id = vet_id AND exception_date = current_date;
+      
+      IF exception_record.exception_type = 'unavailable' THEN
+        -- Skip this date entirely
+        current_date := current_date + INTERVAL '1 day';
+        CONTINUE;
+      END IF;
+      
+      -- Get the regular schedule for this day
+      SELECT * INTO day_schedule 
+      FROM veterinarian_schedules 
+      WHERE veterinarian_id = vet_id 
+      AND day_of_weekot as available when appointment is deleted
     UPDATE time_slots 
     SET is_booked = false, 
         is_available = true,

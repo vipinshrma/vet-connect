@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const FeatureCard = ({ 
@@ -11,7 +11,7 @@ export default function ExploreScreen() {
   }: { 
     title: string; 
     description: string; 
-    iconName: string;
+    iconName: 'location.fill' | 'calendar' | 'heart.fill' | 'phone.fill' | 'star.fill' | 'video.fill';
     isComingSoon?: boolean;
   }) => (
     <TouchableOpacity
@@ -63,13 +63,11 @@ export default function ExploreScreen() {
           <Text 
             className="text-2xl font-inter-bold text-primary-700 mb-3"
             accessibilityRole="header"
-            accessibilityLevel={1}
           >
             Explore VetConnect
           </Text>
           <Text 
             className="text-base font-inter text-secondary-600 leading-6"
-            accessibilityRole="text"
           >
             Discover all the features designed to help you find the best veterinary care
           </Text>
@@ -77,13 +75,13 @@ export default function ExploreScreen() {
 
         {/* Feature Cards */}
         <View 
-          accessibilityRole="region"
+          accessible={true}
           accessibilityLabel="VetConnect features"
         >
           <FeatureCard
             title="Find Nearby Vets"
             description="Locate veterinarians in your area with real-time availability and ratings"
-            iconName="location"
+            iconName="location.fill"
             isComingSoon={true}
           />
 
@@ -97,28 +95,28 @@ export default function ExploreScreen() {
           <FeatureCard
             title="Pet Health Records"
             description="Keep track of your pet's medical history, vaccinations, and treatments"
-            iconName="heart"
+            iconName="heart.fill"
             isComingSoon={true}
           />
 
           <FeatureCard
             title="Emergency Services"
             description="Quick access to emergency veterinary services when you need them most"
-            iconName="phone"
+            iconName="phone.fill"
             isComingSoon={true}
           />
 
           <FeatureCard
             title="Vet Reviews & Ratings"
             description="Read reviews from other pet owners to make informed decisions"
-            iconName="star"
+            iconName="star.fill"
             isComingSoon={true}
           />
 
           <FeatureCard
             title="Telemedicine"
             description="Consult with veterinarians remotely for non-emergency concerns"
-            iconName="video"
+            iconName="video.fill"
             isComingSoon={true}
           />
         </View>
@@ -126,19 +124,17 @@ export default function ExploreScreen() {
         {/* Development Status */}
         <View 
           className="bg-primary-50 p-6 rounded-xl mt-6"
-          accessibilityRole="region"
+          accessible={true}
           accessibilityLabel="Development status information"
         >
           <Text 
             className="text-lg font-inter-semibold text-primary-700 mb-3"
             accessibilityRole="header"
-            accessibilityLevel={2}
           >
             Development Progress
           </Text>
           <Text 
             className="text-sm font-inter text-primary-600 leading-6"
-            accessibilityRole="text"
           >
             We're building VetConnect in phases. Phase 1 focused on project setup and architecture. 
             Next phases will bring authentication, vet discovery, and booking features to life.

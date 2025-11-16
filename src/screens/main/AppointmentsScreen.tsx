@@ -43,13 +43,23 @@ const AppointmentsScreen: React.FC = () => {
   const isVeterinarian = user?.userType === 'veterinarian';
   const screenTitle = isVeterinarian ? 'My Schedule' : 'My Appointments';
 
-  // Filter appointments based on selected filter
+  // Filter and sort appointments - latest first
   const filteredAppointments = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    return appointmentsWithDetails.filter(appointment => {
-      const appointmentDate = new Date(appointment.date);
+    const filtered = appointmentsWithDetails.filter(appointment => {
+      // For veterinarians, ensure appointment belongs to logged-in vet
+      if (isVeterinarian && user?.id) {
+        if (appointment.veterinarianId !== user.id) {
+          return false;
+        }
+      }
+
+      // Handle both Date objects and ISO strings
+      const appointmentDate = appointment.date instanceof Date 
+        ? appointment.date 
+        : new Date(appointment.date as any);
       const appointmentDateTime = new Date(
         appointmentDate.getFullYear(),
         appointmentDate.getMonth(),
@@ -71,7 +81,31 @@ const AppointmentsScreen: React.FC = () => {
           return true;
       }
     });
-  }, [appointmentsWithDetails, filter]);
+
+    // Sort appointments: latest first (by date and time)
+    return filtered.sort((a, b) => {
+      // Handle both Date objects and ISO strings
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date as any);
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date as any);
+      
+      // Parse start times for comparison
+      const timeA = a.timeSlot?.startTime || '00:00';
+      const timeB = b.timeSlot?.startTime || '00:00';
+      
+      const [hoursA, minutesA] = timeA.split(':').map(Number);
+      const [hoursB, minutesB] = timeB.split(':').map(Number);
+      
+      // Create full datetime for comparison
+      const fullDateA = new Date(dateA);
+      fullDateA.setHours(hoursA, minutesA, 0, 0);
+      
+      const fullDateB = new Date(dateB);
+      fullDateB.setHours(hoursB, minutesB, 0, 0);
+      
+      // Sort in descending order (latest/newest first)
+      return fullDateB.getTime() - fullDateA.getTime();
+    });
+  }, [appointmentsWithDetails, filter, isVeterinarian, user?.id]);
   
 
   // Load appointments
@@ -308,8 +342,9 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   const statusColors = getStatusColor(appointment.status);
 
-  const formatDateTime = (date: Date, timeSlot: { startTime: string; endTime: string }) => {
-    const appointmentDate = new Date(date);
+  const formatDateTime = (date: Date | string, timeSlot: { startTime: string; endTime: string }) => {
+    // Handle both Date objects and ISO strings
+    const appointmentDate = date instanceof Date ? date : new Date(date as any);
     const dateStr = appointmentDate.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -390,7 +425,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <View className="flex-row items-center mb-2">
             <Ionicons name="time-outline" size={16} color="#6b7280" />
             <Text className="text-sm text-gray-600 ml-1">
-              {formatDateTime(new Date(appointment.date), appointment.timeSlot)}
+              {formatDateTime(
+                appointment.date instanceof Date ? appointment.date : new Date(appointment.date as any),
+                appointment.timeSlot
+              )}
             </Text>
           </View>
 
@@ -408,7 +446,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <TouchableOpacity
                 onPress={(e: GestureResponderEvent) => {
                   e.stopPropagation();
-                  onCancel(appointment.id, new Date(appointment.date));
+                  const appointmentDate = appointment.date instanceof Date 
+                    ? appointment.date 
+                    : new Date(appointment.date as any);
+                  onCancel(appointment.id, appointmentDate);
                 }}
                 className="bg-red-50 px-3 py-2 rounded-lg flex-row items-center"
                 accessibilityRole="button"

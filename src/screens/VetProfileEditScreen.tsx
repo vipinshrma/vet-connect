@@ -6,6 +6,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -15,9 +17,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LocationSearch from '../components/LocationSearch';
 import { supabase } from '../config/supabase';
+import { Database } from '../services/supabaseTypes';
 import { supabaseVetService } from '../services/supabaseVetService';
 import { RootStackParamList, Veterinarian } from '../types';
 import { fetchPostalCode } from '../utils/accessibilityUtils';
+
+type ClinicUpdate = Database['public']['Tables']['clinics']['Update'];
 
 type VetProfileEditScreenProps = NativeStackScreenProps<RootStackParamList, 'VetProfileEdit'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -41,7 +46,7 @@ const specialtyOptions = [
 ];
 
 const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) => {
-  const { veterinarianId = '' } = route.params;
+  const { veterinarianId = '' } = route.params || {};
   const navigation = useNavigation<NavigationProp>();
   const [veterinarian, setVeterinarian] = useState<Veterinarian | null>(null);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -52,14 +57,27 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
   const [clinicState, setClinicState] = useState('');
   const [clinicZipCode, setClinicZipCode] = useState('');
   const [clinicPhone, setClinicPhone] = useState('');
-  const [clinic, setClinic] = useState<any>(null);
+  const [clinic, setClinic] = useState<{
+    id: string;
+    name?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    phone?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!veterinarianId) return;
+    if (!veterinarianId) {
+      setLoading(false);
+      Alert.alert('Error', 'No veterinarian ID provided');
+      navigation.goBack();
+      return;
+    }
     loadVeterinarianData();
   }, [veterinarianId]);
 
@@ -84,13 +102,22 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
             .eq('id', vet.clinic_id)
             .single();
           if (!clinicError && clinicData) {
-            setClinic(clinicData);
-            setClinicName(clinicData.name || '');
-            setClinicAddress(clinicData.address || '');
-            setClinicCity(clinicData.city || '');
-            setClinicState(clinicData.state || '');
-            setClinicZipCode(clinicData.zip_code || '');
-            setClinicPhone(clinicData.phone || '');
+            const clinicInfo = clinicData as any;
+            setClinic({
+              id: clinicInfo.id,
+              name: clinicInfo.name,
+              address: clinicInfo.address,
+              city: clinicInfo.city,
+              state: clinicInfo.state,
+              zip_code: clinicInfo.zip_code,
+              phone: clinicInfo.phone,
+            });
+            setClinicName(clinicInfo.name || '');
+            setClinicAddress(clinicInfo.address || '');
+            setClinicCity(clinicInfo.city || '');
+            setClinicState(clinicInfo.state || '');
+            setClinicZipCode(clinicInfo.zip_code || '');
+            setClinicPhone(clinicInfo.phone || '');
           }
         }
       } else {
@@ -152,21 +179,37 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
       // Update clinic information
       if (clinic) {
         // Update existing clinic
+        const updateData: ClinicUpdate = {
+          name: clinicName.trim(),
+          address: clinicAddress.trim(),
+          city: clinicCity.trim(),
+          state: clinicState.trim(),
+          zip_code: clinicZipCode.trim() || undefined,
+          phone: clinicPhone.trim() || undefined,
+        };
         const { error: clinicError } = await supabase
           .from('clinics')
-          .update({
-            name: clinicName.trim(),
-            address: clinicAddress.trim(),
-            city: clinicCity.trim(),
-            state: clinicState.trim(),
-            zip_code: clinicZipCode.trim() || null,
-            phone: clinicPhone.trim() || null,
-          })
+          // @ts-ignore - Supabase type inference issue with update method
+          .update(updateData)
           .eq('id', clinic.id);
 
         if (clinicError) {
           throw new Error(`Failed to update clinic: ${clinicError.message}`);
         }
+
+        // Update veterinarian profile with specialties and experience
+        console.log('Updating veterinarian profile:', {
+          veterinarianId,
+          specialties: selectedSpecialties,
+          experience: parseInt(experience),
+        });
+        
+        await supabaseVetService.updateVeterinarianProfile(veterinarianId, {
+          specialties: selectedSpecialties,
+          experience: parseInt(experience),
+        });
+        
+        console.log('Veterinarian profile updated successfully');
       } else {
         // Create new clinic if none exists
         const clinicData = {
@@ -199,7 +242,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
 
         const { data: newClinic, error: clinicError } = await supabase
           .from('clinics')
-          .insert(clinicData)
+          .insert(clinicData as any)
           .select('id')
           .single();
 
@@ -208,15 +251,21 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
         }
 
         // Update state with new clinic
-        setClinic({ id: newClinic.id, ...clinicData });
+        if (newClinic) {
+          const newClinicData = newClinic as any;
+          setClinic({ id: newClinicData.id, ...clinicData });
 
-        // Update veterinarian with new clinic ID
-        await supabaseVetService.updateVeterinarianProfile(veterinarianId, {
-          specialties: selectedSpecialties,
-          experience: parseInt(experience),
-          clinic_id: newClinic.id,
-        });
+          // Update veterinarian with new clinic ID
+          await supabaseVetService.updateVeterinarianProfile(veterinarianId, {
+            specialties: selectedSpecialties,
+            experience: parseInt(experience),
+            clinic_id: newClinicData.id,
+          });
+        }
       }
+
+      // Reload data to show updated values immediately
+      await loadVeterinarianData();
 
       Alert.alert(
         'Success',
@@ -371,11 +420,17 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Current Profile Info Card */}
         {veterinarian && (
           <View style={{
@@ -774,11 +829,10 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
                     const zipCode = await fetchPostalCode(latitude, longitude);
 
                     setClinicAddress(location.place_name);
-                    setClinicCity(location.context.find(ctx => ctx.id.startsWith('place'))?.text || '');
-                    setClinicState(location.context.find(ctx => ctx.id.startsWith('region'))?.text || '');
+                    setClinicCity(location.context?.find((ctx: { id: string; text: string }) => ctx.id.startsWith('place'))?.text || '');
+                    setClinicState(location.context?.find((ctx: { id: string; text: string }) => ctx.id.startsWith('region'))?.text || '');
                     setClinicZipCode(zipCode || '');
                   }}
-                  accessibilityLabel="Clinic address search"
                 />
               </View>
 
@@ -954,6 +1008,7 @@ const VetProfileEditScreen: React.FC<VetProfileEditScreenProps> = ({ route }) =>
         {/* Bottom Spacing for Safe Area */}
         <View style={{ height: 16 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

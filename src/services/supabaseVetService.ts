@@ -2,8 +2,8 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../config/supabase';
 import { TimeSlot, Veterinarian } from '../types';
-import { Database } from './supabaseTypes';
 import { getSpecialtyNamesForQuickFilter, specialtyMatchesQuickFilter } from '../utils/specialtyMapping';
+import { Database } from './supabaseTypes';
 
 type VeterinarianRow = Database['public']['Tables']['veterinarians']['Row'];
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -61,13 +61,23 @@ export class SupabaseVetService {
 
   // Convert database row to app Veterinarian type
   private mapToVeterinarian(row: VeterinarianWithProfile): Veterinarian {
+    // Ensure specialties is always an array
+    const specialties = Array.isArray(row.specialties) ? row.specialties : (row.specialties ? [row.specialties] : []);
+    
+    console.log('🔄 [DEBUG] Mapping veterinarian:', {
+      id: row.id,
+      rawSpecialties: row.specialties,
+      processedSpecialties: specialties,
+      experience: row.experience,
+    });
+
     return {
       id: row.id,
       name: row.profiles.name,
       email: row.profiles.email,
       phone: row.profiles.phone || '',
       photoURL: ((row.profiles as any).photo_url as string | undefined) || row.profiles.photo_url || undefined,
-      specialties: row.specialties || [],
+      specialties: specialties,
       experience: row.experience,
       rating: row.rating,
       reviewCount: row.review_count,
@@ -106,10 +116,19 @@ export class SupabaseVetService {
   // Get veterinarian by ID
   async getVeterinarianById(vetId: string): Promise<Veterinarian | null> {
     try {
+      console.log('🔍 [DEBUG] Fetching veterinarian by ID:', vetId);
+      
       const { data, error } = await supabase
         .from('veterinarians')
         .select(`
-          *,
+          id,
+          specialties,
+          experience,
+          rating,
+          review_count,
+          clinic_id,
+          created_at,
+          updated_at,
           profiles!inner(*),
           clinics(*)
         `)
@@ -118,15 +137,33 @@ export class SupabaseVetService {
 
       if (error) {
         if (error.code === 'PGRST116') {
+          console.log('⚠️ [WARN] Veterinarian not found:', vetId);
           return null; // Not found
         }
-        console.error('Error fetching veterinarian:', error);
+        console.error('❌ [ERROR] Error fetching veterinarian:', error);
         throw new Error(`Failed to fetch veterinarian: ${error.message}`);
       }
 
-      return this.mapToVeterinarian(data);
+      const dbData = data as any;
+      console.log('📦 [DEBUG] Raw veterinarian data from DB:', {
+        id: dbData?.id,
+        specialties: dbData?.specialties,
+        experience: dbData?.experience,
+        clinic_id: dbData?.clinic_id,
+      });
+
+      const mappedVet = this.mapToVeterinarian(data as any);
+      
+      console.log('✅ [DEBUG] Mapped veterinarian data:', {
+        id: mappedVet?.id,
+        name: mappedVet?.name,
+        specialties: mappedVet?.specialties,
+        experience: mappedVet?.experience,
+      });
+
+      return mappedVet;
     } catch (error) {
-      console.error('Error in getVeterinarianById:', error);
+      console.error('❌ [ERROR] Error in getVeterinarianById:', error);
       throw error;
     }
   }
@@ -529,6 +566,11 @@ export class SupabaseVetService {
     }
   ): Promise<void> {
     try {
+      console.log('🔧 [DEBUG] updateVeterinarianProfile called:', {
+        vetId,
+        vetData,
+      });
+
       const updateData: Partial<VeterinarianInsert> = {};
       
       if (vetData.specialties !== undefined) {
@@ -541,17 +583,22 @@ export class SupabaseVetService {
         updateData.clinic_id = vetData.clinic_id || null;
       }
 
-      const { error } = await supabase
+      console.log('🔧 [DEBUG] Update data prepared:', updateData);
+
+      const { data, error } = await supabase
         .from('veterinarians')
         .update(updateData)
-        .eq('id', vetId);
+        .eq('id', vetId)
+        .select();
 
       if (error) {
-        console.error('Error updating veterinarian profile:', error);
+        console.error('❌ [ERROR] Error updating veterinarian profile:', error);
         throw new Error(`Failed to update veterinarian profile: ${error.message}`);
       }
+
+      console.log('✅ [SUCCESS] Veterinarian profile updated:', data);
     } catch (error) {
-      console.error('Error in updateVeterinarianProfile:', error);
+      console.error('❌ [ERROR] Error in updateVeterinarianProfile:', error);
       throw error;
     }
   }
