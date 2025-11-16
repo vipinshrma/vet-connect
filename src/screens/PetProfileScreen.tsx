@@ -3,16 +3,16 @@ import { RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import LoadingScreen from '../components/LoadingScreen';
@@ -37,6 +37,7 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
   
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [petImageError, setPetImageError] = useState(false);
   
   // Get pet from Redux store if editing
   const pet = petId ? pets.find(p => p.id === petId) || null : null;
@@ -217,21 +218,15 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
               <View className="w-32 h-32 rounded-full bg-blue-100 items-center justify-center">
                 <View className="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent" />
               </View>
-            ) : pet?.photoURL ? (
+            ) : pet?.photoURL && !petImageError ? (
               <Image
                 source={{ uri: pet.photoURL }}
                 className="w-32 h-32 rounded-full"
                 resizeMode="cover"
-                onError={(error) => {
-                  console.log('🔧 [DEBUG] Image load error:', error.nativeEvent);
-                  console.log('🔧 [DEBUG] Image URI:', pet.photoURL);
-                }}
-                onLoad={() => {
-                  console.log('🔧 [DEBUG] Image loaded successfully:', pet.photoURL);
-                }}
+                onError={() => setPetImageError(true)}
               />
             ) : (
-              <Ionicons name="paw-outline" size={48} color="#3B82F6" />
+              <Ionicons name="paw" size={48} color="#3B82F6" />
             )}
             
             {/* Upload overlay when uploading */}
@@ -395,7 +390,7 @@ const PetProfileScreen: React.FC<Props> = ({ route }) => {
                   <View 
                     key={vaccination.id} 
                     className="flex-row justify-between items-start py-3"
-                    style={{ borderBottomWidth: index < pet.vaccinations.length - 1 ? 1 : 0, borderBottomColor: '#E5E7EB' }}
+                    style={{ borderBottomWidth: index < (pet.vaccinations?.length || 0) - 1 ? 1 : 0, borderBottomColor: '#E5E7EB' }}
                   >
                     <View className="flex-1 mr-3">
                       <Text className="font-semibold text-gray-900 text-base mb-1">{vaccination.name}</Text>

@@ -71,9 +71,10 @@ export class SupabaseAppointmentService {
         species: row.pets.species,
         breed: row.pets.breed,
         age: row.pets.age,
+        weight: row.pets.weight,
         photoURL: row.pets.photo_url,
         ownerId: row.pets.owner_id || row.owner_id,
-        gender: 'male', // Default, should be in database
+        gender: row.pets.gender || 'male', // Default to male if not specified
         medicalHistory: [],
         vaccinations: [],
         createdAt: new Date().toISOString(),
@@ -165,6 +166,8 @@ export class SupabaseAppointmentService {
             species,
             breed,
             age,
+            weight,
+            gender,
             photo_url
           )
         `)
@@ -197,6 +200,8 @@ export class SupabaseAppointmentService {
             species,
             breed,
             age,
+            weight,
+            gender,
             photo_url,
             owner_id
           ),
@@ -272,6 +277,8 @@ export class SupabaseAppointmentService {
             species,
             breed,
             age,
+            weight,
+            gender,
             photo_url,
             owner_id
           ),
@@ -338,9 +345,140 @@ export class SupabaseAppointmentService {
     return this.updateAppointmentStatus(appointmentId, 'cancelled', userId);
   }
 
-  // Confirm appointment (for vets)
+  // Accept appointment (for vets) - changes status from scheduled to confirmed
+  async acceptAppointment(appointmentId: string, vetId: string): Promise<Appointment> {
+    try {
+      // Verify vet owns this appointment
+      const { data: existingAppointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('veterinarian_id, status')
+        .eq('id', appointmentId)
+        .single();
+
+      if (fetchError || !existingAppointment) {
+        throw new Error('Appointment not found');
+      }
+
+      if (existingAppointment.veterinarian_id !== vetId) {
+        throw new Error('Unauthorized: This appointment does not belong to you');
+      }
+
+      if (existingAppointment.status !== 'scheduled') {
+        throw new Error(`Cannot accept appointment with status: ${existingAppointment.status}`);
+      }
+
+      // Update status to confirmed
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId)
+        .eq('veterinarian_id', vetId)
+        .eq('status', 'scheduled') // Only update if still scheduled
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error accepting appointment:', error);
+        throw new Error(`Failed to accept appointment: ${error.message}`);
+      }
+
+      // Update time_slots table to mark slot as confirmed
+      if (data) {
+        await supabase
+          .from('time_slots')
+          .update({ 
+            is_booked: true,
+            is_available: false
+          })
+          .eq('veterinarian_id', vetId)
+          .eq('slot_date', data.appointment_date)
+          .eq('start_time', data.start_time);
+      }
+
+      return this.mapToAppointment(data);
+    } catch (error) {
+      console.error('Error in acceptAppointment:', error);
+      throw error;
+    }
+  }
+
+  // Decline appointment (for vets) - changes status from scheduled to cancelled
+  async declineAppointment(
+    appointmentId: string, 
+    vetId: string, 
+    reason?: string
+  ): Promise<Appointment> {
+    try {
+      // Verify vet owns this appointment
+      const { data: existingAppointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('veterinarian_id, status')
+        .eq('id', appointmentId)
+        .single();
+
+      if (fetchError || !existingAppointment) {
+        throw new Error('Appointment not found');
+      }
+
+      if (existingAppointment.veterinarian_id !== vetId) {
+        throw new Error('Unauthorized: This appointment does not belong to you');
+      }
+
+      if (existingAppointment.status !== 'scheduled') {
+        throw new Error(`Cannot decline appointment with status: ${existingAppointment.status}`);
+      }
+
+      // Update status to cancelled with reason
+      const updateData: AppointmentUpdate = {
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      };
+
+      if (reason) {
+        updateData.notes = reason;
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .update(updateData)
+        .eq('id', appointmentId)
+        .eq('veterinarian_id', vetId)
+        .eq('status', 'scheduled') // Only update if still scheduled
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error declining appointment:', error);
+        throw new Error(`Failed to decline appointment: ${error.message}`);
+      }
+
+      // Free up time slot in time_slots table
+      if (data) {
+        await supabase
+          .from('time_slots')
+          .update({ 
+            is_booked: false,
+            is_available: true,
+            appointment_id: null
+          })
+          .eq('veterinarian_id', vetId)
+          .eq('slot_date', data.appointment_date)
+          .eq('start_time', data.start_time);
+      }
+
+      return this.mapToAppointment(data);
+    } catch (error) {
+      console.error('Error in declineAppointment:', error);
+      throw error;
+    }
+  }
+
+  // Confirm appointment (for vets) - alias for acceptAppointment
   async confirmAppointment(appointmentId: string, vetId: string): Promise<Appointment> {
-    return this.updateAppointmentStatus(appointmentId, 'confirmed', vetId);
+    return this.acceptAppointment(appointmentId, vetId);
   }
 
   // Complete appointment with notes and prescription
@@ -482,6 +620,101 @@ export class SupabaseAppointmentService {
       return data.map((row) => this.mapToAppointment(row));
     } catch (error) {
       console.error('Error in getAppointmentsByDate:', error);
+      throw error;
+    }
+  }
+
+  // Update appointment notes (for pre-appointment notes)
+  async updateAppointmentNotes(
+    appointmentId: string,
+    notes: string,
+    userId: string
+  ): Promise<Appointment> {
+    try {
+      // Verify user is the veterinarian for this appointment
+      const appointment = await this.getAppointmentById(appointmentId, userId);
+      if (!appointment) {
+        throw new Error('Appointment not found');
+      }
+      
+      if (appointment.veterinarianId !== userId) {
+        throw new Error('Only the veterinarian can update appointment notes');
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ notes })
+        .eq('id', appointmentId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating appointment notes:', error);
+        throw new Error(`Failed to update appointment notes: ${error.message}`);
+      }
+
+      return this.mapToAppointment(data);
+    } catch (error) {
+      console.error('Error in updateAppointmentNotes:', error);
+      throw error;
+    }
+  }
+
+  // Start appointment (update status to in-progress)
+  async startAppointment(
+    appointmentId: string,
+    vetId: string
+  ): Promise<Appointment> {
+    try {
+      // Verify vet ownership and status
+      const appointment = await this.getAppointmentById(appointmentId, vetId);
+      if (!appointment) {
+        throw new Error('Appointment not found');
+      }
+
+      if (appointment.veterinarianId !== vetId) {
+        throw new Error('Only the assigned veterinarian can start the appointment');
+      }
+
+      if (appointment.status !== 'confirmed') {
+        throw new Error(`Cannot start appointment with status: ${appointment.status}`);
+      }
+
+      // Validate time window (30 min before to 2 hours after scheduled time)
+      const appointmentDate = appointment.date instanceof Date 
+        ? appointment.date 
+        : new Date(appointment.date as any);
+      const [startHour, startMinute] = appointment.timeSlot.startTime.split(':').map(Number);
+      const scheduledTime = new Date(appointmentDate);
+      scheduledTime.setHours(startHour, startMinute, 0, 0);
+
+      const now = new Date();
+      const thirtyMinutesBefore = new Date(scheduledTime.getTime() - 30 * 60 * 1000);
+      const twoHoursAfter = new Date(scheduledTime.getTime() + 2 * 60 * 60 * 1000);
+
+      if (now < thirtyMinutesBefore) {
+        throw new Error('Appointment can only be started 30 minutes before the scheduled time');
+      }
+
+      if (now > twoHoursAfter) {
+        throw new Error('Appointment can only be started within 2 hours after the scheduled time');
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'in-progress' })
+        .eq('id', appointmentId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error starting appointment:', error);
+        throw new Error(`Failed to start appointment: ${error.message}`);
+      }
+
+      return this.mapToAppointment(data);
+    } catch (error) {
+      console.error('Error in startAppointment:', error);
       throw error;
     }
   }

@@ -42,6 +42,8 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
   const [loading, setLoading] = useState(true);
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
+  const [petImageErrors, setPetImageErrors] = useState<Record<string, boolean>>({});
+  const [confirmPetImageError, setConfirmPetImageError] = useState(false);
 
   // Booking flow state
   const [currentStep, setCurrentStep] = useState<BookingStep>('pet');
@@ -429,7 +431,18 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
             ]}
             onPress={() => setSelectedPet(pet)}
           >
-            <Image source={{ uri: pet.photoURL }} style={styles.petImage} />
+            <View style={[styles.petImage, { backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }]}>
+              {pet.photoURL && !petImageErrors[pet.id] ? (
+                <Image 
+                  source={{ uri: pet.photoURL }} 
+                  style={styles.petImage}
+                  resizeMode="cover"
+                  onError={() => setPetImageErrors(prev => ({ ...prev, [pet.id]: true }))}
+                />
+              ) : (
+                <Ionicons name="paw" size={32} color="#3B82F6" />
+              )}
+            </View>
             <View style={styles.petInfo}>
               <Text style={styles.petName}>{pet.name}</Text>
               <Text style={styles.petDetails}>
@@ -588,7 +601,18 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
         <View style={styles.confirmSection}>
           <Text style={styles.confirmLabel}>Pet</Text>
           <View style={styles.confirmPetInfo}>
-            <Image source={{ uri: selectedPet?.photoURL }} style={styles.confirmPetImage} />
+            <View style={[styles.confirmPetImage, { backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }]}>
+              {selectedPet?.photoURL && !confirmPetImageError ? (
+                <Image 
+                  source={{ uri: selectedPet.photoURL }} 
+                  style={styles.confirmPetImage}
+                  resizeMode="cover"
+                  onError={() => setConfirmPetImageError(true)}
+                />
+              ) : (
+                <Ionicons name="paw" size={40} color="#3B82F6" />
+              )}
+            </View>
             <Text style={styles.confirmValue}>{selectedPet?.name}</Text>
           </View>
         </View>

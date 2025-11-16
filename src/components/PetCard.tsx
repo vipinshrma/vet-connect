@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Pet } from '../types';
@@ -10,6 +10,7 @@ interface PetCardProps {
 }
 
 const PetCard: React.FC<PetCardProps> = ({ pet, onPress, onEdit }) => {
+  const [imageError, setImageError] = useState(false);
   const getSpeciesIcon = (species: string) => {
     switch (species) {
       case 'dog':
@@ -46,16 +47,17 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress, onEdit }) => {
       <View className="flex-row items-start justify-between">
         <View className="flex-row items-start flex-1">
           {/* Pet Photo or Icon */}
-          <View className="w-16 h-16 rounded-full bg-blue-50 items-center justify-center mr-4">
-            {pet.photoURL ? (
+          <View className="w-16 h-16 rounded-full bg-blue-50 items-center justify-center mr-4 overflow-hidden">
+            {pet.photoURL && !imageError ? (
               <Image
                 source={{ uri: pet.photoURL }}
                 className="w-16 h-16 rounded-full"
                 resizeMode="cover"
+                onError={() => setImageError(true)}
               />
             ) : (
               <Ionicons
-                name={getSpeciesIcon(pet.species)}
+                name="paw"
                 size={24}
                 color="#3B82F6"
               />

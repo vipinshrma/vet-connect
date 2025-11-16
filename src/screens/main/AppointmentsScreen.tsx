@@ -15,18 +15,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { supabase } from '../../config/supabase';
 import { supabasePetService } from '../../services/supabasePetService';
 import { supabaseVetService } from '../../services/supabaseVetService';
 import { AppDispatch, RootState } from '../../store';
-import { cancelAppointment, fetchUserAppointments, fetchVeterinarianAppointments } from '../../store/slices/appointmentSlice';
+import { 
+  acceptAppointment, 
+  cancelAppointment, 
+  declineAppointment, 
+  fetchUserAppointments, 
+  fetchVeterinarianAppointments 
+} from '../../store/slices/appointmentSlice';
 import { Appointment, Pet, RootStackParamList, Veterinarian } from '../../types';
+import { isNewAppointment } from '../../utils/dateSerialization';
 
 interface AppointmentWithDetails extends Appointment {
   veterinarian?: Veterinarian;
   pet?: Pet;
+  owner?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
 }
 
-type AppointmentFilter = 'all' | 'upcoming' | 'past';
+type AppointmentFilter = 'all' | 'upcoming' | 'past' | 'pending';
 
 const AppointmentsScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -42,6 +56,14 @@ const AppointmentsScreen: React.FC = () => {
 
   const isVeterinarian = user?.userType === 'veterinarian';
   const screenTitle = isVeterinarian ? 'My Schedule' : 'My Appointments';
+
+  // Calculate pending acceptance count (for veterinarians)
+  const pendingCount = useMemo(() => {
+    if (!isVeterinarian || !user?.id) return 0;
+    return appointmentsWithDetails.filter(
+      apt => apt.veterinarianId === user.id && apt.status === 'scheduled'
+    ).length;
+  }, [appointmentsWithDetails, isVeterinarian, user?.id]);
 
   // Filter and sort appointments - latest first
   const filteredAppointments = useMemo(() => {
@@ -67,6 +89,9 @@ const AppointmentsScreen: React.FC = () => {
       );
 
       switch (filter) {
+        case 'pending':
+          // Only show scheduled appointments for vets (pending acceptance)
+          return appointment.status === 'scheduled';
         case 'upcoming':
           return (
             appointmentDateTime >= today &&
@@ -123,7 +148,7 @@ const AppointmentsScreen: React.FC = () => {
     }
   }, [dispatch, user?.id, isVeterinarian]);
 
-  // Load additional details for appointments (vet info, pet info)
+  // Load additional details for appointments (vet info, pet info, owner info)
   const loadAppointmentDetails = useCallback(async (appointmentsList: Appointment[]) => {
     if (appointmentsList.length === 0) return;
 
@@ -136,10 +161,34 @@ const AppointmentsScreen: React.FC = () => {
             supabasePetService.getPetDetails(appointment.petId),
           ]);
 
+          // For veterinarians, also fetch owner info if not already included
+          let owner = appointment.owner;
+          if (isVeterinarian && appointment.ownerId && !owner) {
+            try {
+              const { data: ownerProfile } = await supabase
+                .from('profiles')
+                .select('id, name, email, phone')
+                .eq('id', appointment.ownerId)
+                .single();
+              
+              if (ownerProfile) {
+                owner = {
+                  id: ownerProfile.id,
+                  name: ownerProfile.name,
+                  email: ownerProfile.email,
+                  phone: ownerProfile.phone || undefined,
+                };
+              }
+            } catch (error) {
+              console.error('Failed to load owner profile:', error);
+            }
+          }
+
           return {
             ...appointment,
             veterinarian: veterinarian || undefined,
             pet: pet || undefined,
+            owner: owner || appointment.owner,
           } as AppointmentWithDetails;
         } catch (error) {
           console.error('Failed to load details for appointment:', appointment.id, error);
@@ -190,6 +239,53 @@ const AppointmentsScreen: React.FC = () => {
     );
   }, [dispatch, loadAppointments, user?.id]);
 
+  // Accept appointment handler (for veterinarians)
+  const handleAcceptAppointment = useCallback(async (appointmentId: string, vetId: string) => {
+    Alert.alert(
+      'Accept Appointment',
+      'Are you sure you want to accept this appointment? The pet owner will be notified.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          onPress: async () => {
+            try {
+              await dispatch(acceptAppointment({ appointmentId, vetId })).unwrap();
+              Alert.alert('Success', 'Appointment accepted successfully!');
+              await loadAppointments();
+            } catch (error: any) {
+              Alert.alert('Error', error || 'Failed to accept appointment. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [dispatch, loadAppointments]);
+
+  // Decline appointment handler (for veterinarians)
+  const handleDeclineAppointment = useCallback(async (appointmentId: string, vetId: string) => {
+    Alert.alert(
+      'Decline Appointment',
+      'Are you sure you want to decline this appointment? The pet owner will be notified. You can add a reason when viewing details.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(declineAppointment({ appointmentId, vetId })).unwrap();
+              Alert.alert('Success', 'Appointment declined. The pet owner has been notified.');
+              await loadAppointments();
+            } catch (error: any) {
+              Alert.alert('Error', error || 'Failed to decline appointment. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [dispatch, loadAppointments]);
+
   // Load appointments on component mount and when user changes
   useEffect(() => {
     loadAppointments();
@@ -225,27 +321,46 @@ const AppointmentsScreen: React.FC = () => {
         
         {/* Filter Tabs */}
         <View className="flex-row mt-4">
-          {(['all', 'upcoming', 'past'] as AppointmentFilter[]).map((filterOption) => (
-            <TouchableOpacity
-              key={filterOption}
-              onPress={() => setFilter(filterOption)}
-              className={`px-4 py-2 rounded-lg mr-2 ${
-                filter === filterOption
-                  ? 'bg-blue-600'
-                  : 'bg-gray-100'
-              }`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: filter === filterOption }}
-            >
-              <Text
-                className={`text-sm font-medium capitalize ${
-                  filter === filterOption ? 'text-white' : 'text-gray-700'
+          {(isVeterinarian 
+            ? ['all', 'pending', 'upcoming', 'past'] as AppointmentFilter[]
+            : ['all', 'upcoming', 'past'] as AppointmentFilter[]
+          ).map((filterOption) => {
+            // Show badge count for pending filter (vets only)
+            const showBadge = isVeterinarian && filterOption === 'pending' && pendingCount > 0;
+            
+            return (
+              <TouchableOpacity
+                key={filterOption}
+                onPress={() => setFilter(filterOption)}
+                className={`px-4 py-2 rounded-lg mr-2 relative ${
+                  filter === filterOption
+                    ? 'bg-blue-600'
+                    : 'bg-gray-100'
                 }`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === filterOption }}
               >
-                {filterOption === 'all' ? 'All' : filterOption}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <View className="flex-row items-center">
+                  <Text
+                    className={`text-sm font-medium capitalize ${
+                      filter === filterOption ? 'text-white' : 'text-gray-700'
+                    }`}
+                  >
+                    {filterOption === 'all' ? 'All' : 
+                     filterOption === 'pending' ? 'Pending' : 
+                     filterOption}
+                  </Text>
+                  {showBadge && (
+                    <View className="ml-2 bg-red-500 rounded-full px-2 py-0.5 min-w-[20px] items-center justify-center">
+                      <Text className="text-white text-xs font-bold">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -268,13 +383,16 @@ const AppointmentsScreen: React.FC = () => {
         <View className="flex-1 justify-center items-center px-4">
           <Ionicons name="calendar-outline" size={64} color="#9ca3af" />
           <Text className="text-gray-500 text-lg font-medium mt-4 text-center">
-            {filter === 'upcoming' ? 'No upcoming appointments' :
+            {filter === 'pending' ? 'No pending appointments' :
+             filter === 'upcoming' ? 'No upcoming appointments' :
              filter === 'past' ? 'No past appointments' :
              'No appointments yet'}
           </Text>
           <Text className="text-gray-400 text-center mt-2">
             {isVeterinarian
-              ? 'Your schedule will appear here when patients book appointments.'
+              ? filter === 'pending' 
+                ? 'All appointments have been accepted.'
+                : 'Your schedule will appear here when patients book appointments.'
               : filter === 'upcoming'
                 ? 'Book an appointment with a veterinarian to get started.'
                 : 'Your appointment history will appear here.'}
@@ -299,6 +417,8 @@ const AppointmentsScreen: React.FC = () => {
                 appointment={appointment}
                 isVeterinarian={isVeterinarian}
                 onCancel={handleCancelAppointment}
+                onAccept={user?.id ? (appointmentId: string) => handleAcceptAppointment(appointmentId, user.id) : undefined}
+                onDecline={user?.id ? (appointmentId: string) => handleDeclineAppointment(appointmentId, user.id) : undefined}
               />
             ))}
             
@@ -320,15 +440,25 @@ interface AppointmentCardProps {
   appointment: AppointmentWithDetails;
   isVeterinarian: boolean;
   onCancel: (appointmentId: string, date: Date) => void;
+  onAccept?: (appointmentId: string) => void;
+  onDecline?: (appointmentId: string) => void;
 }
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
   appointment,
   isVeterinarian,
   onCancel,
+  onAccept,
+  onDecline,
 }) => {
+  const [petImageError, setPetImageError] = useState(false);
+  const [vetImageError, setVetImageError] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const canCancel = ['scheduled', 'confirmed'].includes(appointment.status);
+  const isPending = appointment.status === 'scheduled' && isVeterinarian;
+  const isNew = isPending && isNewAppointment(appointment.date, 7);
+  const canAccept = isPending && onAccept;
+  const canDecline = isPending && onDecline;
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled': return 'text-blue-600 bg-blue-50';
@@ -366,27 +496,39 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         {/* Avatar */}
         <View className="mr-3">
           {isVeterinarian && appointment.pet ? (
-            <Image
-              source={{
-                uri: appointment.pet.photoURL || 'https://via.placeholder.com/48x48?text=Pet'
-              }}
-              className="w-12 h-12 rounded-xl"
-              accessibilityLabel={`Photo of ${appointment.pet.name}`}
-            />
+            <View className="w-12 h-12 rounded-xl bg-blue-50 items-center justify-center overflow-hidden">
+              {appointment.pet.photoURL && !petImageError ? (
+                <Image
+                  source={{ uri: appointment.pet.photoURL }}
+                  className="w-12 h-12 rounded-xl"
+                  resizeMode="cover"
+                  onError={() => setPetImageError(true)}
+                  accessibilityLabel={`Photo of ${appointment.pet.name}`}
+                />
+              ) : (
+                <Ionicons name="paw" size={24} color="#3B82F6" />
+              )}
+            </View>
           ) : (!isVeterinarian && appointment.veterinarian) ? (
-            <Image
-              source={{
-                uri: appointment.veterinarian.photoURL || 'https://via.placeholder.com/48x48?text=Dr'
-              }}
-              className="w-12 h-12 rounded-xl"
-              accessibilityLabel={`Photo of Dr. ${appointment.veterinarian.name}`}
-            />
+            <View className="w-12 h-12 rounded-xl bg-blue-50 items-center justify-center overflow-hidden">
+              {appointment.veterinarian.photoURL && !vetImageError ? (
+                <Image
+                  source={{ uri: appointment.veterinarian.photoURL }}
+                  className="w-12 h-12 rounded-xl"
+                  resizeMode="cover"
+                  onError={() => setVetImageError(true)}
+                  accessibilityLabel={`Photo of Dr. ${appointment.veterinarian.name}`}
+                />
+              ) : (
+                <Ionicons name="medical" size={24} color="#3B82F6" />
+              )}
+            </View>
           ) : (
-            <View className="w-12 h-12 rounded-xl bg-gray-100 items-center justify-center">
+            <View className="w-12 h-12 rounded-xl bg-blue-50 items-center justify-center">
               <Ionicons
                 name={isVeterinarian ? 'paw' : 'medical'}
                 size={24}
-                color="#6b7280"
+                color="#3B82F6"
               />
             </View>
           )}
@@ -407,6 +549,11 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                   {appointment.pet.species} • {appointment.pet.breed}
                 </Text>
               )}
+              {isVeterinarian && appointment.owner && (
+                <Text className="text-xs text-gray-500 mt-1">
+                  Owner: {appointment.owner.name}
+                </Text>
+              )}
               {!isVeterinarian && appointment.veterinarian && (
                 <Text className="text-sm text-blue-600">
                   {appointment.veterinarian.specialties?.[0] || 'General Practice'}
@@ -414,10 +561,17 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               )}
             </View>
             
-            <View className={`px-2 py-1 rounded-lg ${statusColors}`}>
-              <Text className={`text-xs font-medium capitalize ${statusColors.split(' ')[0]}`}>
-                {appointment.status}
-              </Text>
+            <View className="flex-row items-center gap-2">
+              {isNew && (
+                <View className="bg-red-500 rounded-full px-2 py-1">
+                  <Text className="text-white text-xs font-bold">NEW</Text>
+                </View>
+              )}
+              <View className={`px-2 py-1 rounded-lg ${statusColors}`}>
+                <Text className={`text-xs font-medium capitalize ${statusColors.split(' ')[0]}`}>
+                  {appointment.status}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -441,8 +595,45 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </View>
 
           {/* Actions */}
-          {canCancel && (
-            <View className="flex-row">
+          {isPending && (canAccept || canDecline) ? (
+            // Accept/Decline buttons for pending appointments (vets only)
+            <View className="flex-row gap-2 mt-3">
+              {canAccept && (
+                <TouchableOpacity
+                  onPress={(e: GestureResponderEvent) => {
+                    e.stopPropagation();
+                    onAccept(appointment.id);
+                  }}
+                  className="flex-1 bg-green-600 px-4 py-3 rounded-lg flex-row items-center justify-center"
+                  accessibilityRole="button"
+                  accessibilityLabel="Accept appointment"
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="white" />
+                  <Text className="text-white text-sm font-semibold ml-2">
+                    Accept
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {canDecline && (
+                <TouchableOpacity
+                  onPress={(e: GestureResponderEvent) => {
+                    e.stopPropagation();
+                    onDecline(appointment.id);
+                  }}
+                  className="flex-1 bg-red-600 px-4 py-3 rounded-lg flex-row items-center justify-center"
+                  accessibilityRole="button"
+                  accessibilityLabel="Decline appointment"
+                >
+                  <Ionicons name="close-circle" size={18} color="white" />
+                  <Text className="text-white text-sm font-semibold ml-2">
+                    Decline
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : canCancel ? (
+            // Cancel button for other statuses
+            <View className="flex-row mt-3">
               <TouchableOpacity
                 onPress={(e: GestureResponderEvent) => {
                   e.stopPropagation();
@@ -461,7 +652,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                 </Text>
               </TouchableOpacity>
             </View>
-          )}
+          ) : null}
         </View>
         </View>
     </TouchableOpacity>
