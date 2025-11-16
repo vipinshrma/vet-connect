@@ -102,22 +102,59 @@ CREATE POLICY slots_public_read ON time_slots
   FOR SELECT USING (true); -- Anyone can read available slots for booking
 
 -- Function to generate time slots for a date range based on schedule
- = day_num 
+CREATE OR REPLACE FUNCTION generate_time_slots(
+  vet_id UUID,
+  start_date DATE,
+  end_date DATE
+) RETURNS INTEGER AS $$
+DECLARE
+  loop_date DATE := start_date;
+  day_schedule RECORD;
+  exception_record RECORD;
+  slot_time TIME;
+  slot_end_time TIME;
+  slot_duration INTERVAL;
+  slots_created INTEGER := 0;
+  day_num INTEGER;
+BEGIN
+  -- Loop through each date in the range
+  WHILE loop_date <= end_date LOOP
+    -- Get the day of week (0 = Sunday)
+    day_num := EXTRACT(DOW FROM loop_date);
+    
+    -- Check if there's an exception for this date
+    SELECT * INTO exception_record 
+    FROM schedule_exceptions 
+    WHERE veterinarian_id = vet_id AND exception_date = loop_date;
+    
+    -- If exception exists and type is unavailable, skip this date
+    IF FOUND AND exception_record.exception_type = 'unavailable' THEN
+      loop_date := loop_date + INTERVAL '1 day';
+      CONTINUE;
+    END IF;
+    
+    -- Get the regular schedule for this day
+    SELECT * INTO day_schedule 
+    FROM veterinarian_schedules 
+    WHERE veterinarian_id = vet_id 
+      AND day_of_week = day_num 
       AND is_active = true
       AND is_working = true;
       
-      IF FOUND THEN
-        -- Use exception data if available, otherwise use regular schedule
-        current_time := COALESCE(exception_record.start_time, day_schedule.start_time);
-        slot_duration := MAKE_INTERVAL(mins => COALESCE(exception_record.slot_duration, day_schedule.slot_duration));
+    IF FOUND THEN
+      -- Use exception data if available, otherwise use regular schedule
+      slot_time := COALESCE(exception_record.start_time, day_schedule.start_time);
+      slot_duration := MAKE_INTERVAL(mins => COALESCE(exception_record.slot_duration, day_schedule.slot_duration));
+      
+      -- Generate slots until end of day
+      WHILE slot_time < COALESCE(exception_record.end_time, day_schedule.end_time) LOOP
+        slot_end_time := slot_time + slot_duration;
         
-        -- Generate slots until end of day
-        WHILE current_time < COALESCE(exception_record.end_time, day_schedule.end_time) LOOP
-          slot_end_time := current_time + slot_duration;
-          
-          -- Skip break time
-          IF NOT (current_time >= COALESCE(exception_record.break_start_time, day_schedule.break_start_time) 
-                 AND current_time < COALESCE(exception_record.break_end_time, day_schedule.break_end_time)) THEN
+        -- Skip break time if break times exist
+        IF (COALESCE(exception_record.break_start_time, day_schedule.break_start_time) IS NOT NULL 
+            AND COALESCE(exception_record.break_end_time, day_schedule.break_end_time) IS NOT NULL) THEN
+          IF NOT (slot_time >= COALESCE(exception_record.break_start_time, day_schedule.break_start_time) 
+                 AND slot_time < COALESCE(exception_record.break_end_time, day_schedule.break_end_time)) THEN
             
             -- Insert the time slot (ON CONFLICT DO NOTHING to avoid duplicates)
             INSERT INTO time_slots (
@@ -129,8 +166,8 @@ CREATE POLICY slots_public_read ON time_slots
               slot_type
             ) VALUES (
               vet_id, 
-              current_date, 
-              current_time, 
+              loop_date, 
+              slot_time, 
               slot_end_time,
               true,
               'regular'
@@ -138,13 +175,32 @@ CREATE POLICY slots_public_read ON time_slots
             
             slots_created := slots_created + 1;
           END IF;
+        ELSE
+          -- No break time, insert slot normally
+          INSERT INTO time_slots (
+            veterinarian_id, 
+            slot_date, 
+            start_time, 
+            end_time,
+            is_available,
+            slot_type
+          ) VALUES (
+            vet_id, 
+            loop_date, 
+            slot_time, 
+            slot_end_time,
+            true,
+            'regular'
+          ) ON CONFLICT (veterinarian_id, slot_date, start_time) DO NOTHING;
           
-          current_time := slot_end_time;
-        END LOOP;
-      END IF;
-    END;
+          slots_created := slots_created + 1;
+        END IF;
+        
+        slot_time := slot_end_time;
+      END LOOP;
+    END IF;
     
-    current_date := current_date + INTERVAL '1 day';
+    loop_date := loop_date + INTERVAL '1 day';
   END LOOP;
   
   RETURN slots_created;
@@ -162,47 +218,12 @@ BEGIN
         is_available = false,
         appointment_id = NEW.id
     WHERE veterinarian_id = NEW.veterinarian_id
-    AND slot_date = NEW.date::DATE
-    AND start_time = NEW.time_slot->>'startTime'::TIME;
+    AND slot_date = NEW.appointment_date::DATE
+    AND start_time = NEW.start_time;
     
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
-    -- Mark slCREATE OR REPLACE FUNCTION generate_time_slots(
-  vet_id UUID,
-  start_date DATE,
-  end_date DATE
-) RETURNS INTEGER AS $$
-DECLARE
-  current_date DATE := start_date;
-  day_schedule RECORD;
-  exception_record RECORD;
-  current_time TIME;
-  slot_end_time TIME;
-  slot_duration INTERVAL;
-  slots_created INTEGER := 0;
-BEGIN
-  -- Loop through each date in the range
-  WHILE current_date <= end_date LOOP
-    -- Get the day of week (0 = Sunday)
-    DECLARE
-      day_num INTEGER := EXTRACT(DOW FROM current_date);
-    BEGIN
-      -- Check if there's an exception for this date
-      SELECT * INTO exception_record 
-      FROM schedule_exceptions 
-      WHERE veterinarian_id = vet_id AND exception_date = current_date;
-      
-      IF exception_record.exception_type = 'unavailable' THEN
-        -- Skip this date entirely
-        current_date := current_date + INTERVAL '1 day';
-        CONTINUE;
-      END IF;
-      
-      -- Get the regular schedule for this day
-      SELECT * INTO day_schedule 
-      FROM veterinarian_schedules 
-      WHERE veterinarian_id = vet_id 
-      AND day_of_weekot as available when appointment is deleted
+    -- Mark slot as available when appointment is deleted
     UPDATE time_slots 
     SET is_booked = false, 
         is_available = true,
