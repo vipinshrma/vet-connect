@@ -18,8 +18,9 @@ import { supabase } from '../config/supabase';
 import { supabaseAppointmentService } from '../services/supabaseAppointmentService';
 import { supabaseClinicService } from '../services/supabaseClinicService';
 import { supabasePetService } from '../services/supabasePetService';
+import { supabaseScheduleService } from '../services/supabaseScheduleService';
 import { supabaseVetService } from '../services/supabaseVetService';
-import { Clinic, Pet, RootStackParamList, TimeSlot, Veterinarian } from '../types';
+import { Clinic, Pet, RootStackParamList, TimeSlot, Veterinarian, WeeklySchedule } from '../types';
 
 type BookAppointmentScreenRouteProp = RouteProp<RootStackParamList, 'BookAppointment'>;
 type BookAppointmentNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -39,6 +40,8 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [userPets, setUserPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [loadingDates, setLoadingDates] = useState(false);
 
   // Booking flow state
   const [currentStep, setCurrentStep] = useState<BookingStep>('pet');
@@ -47,6 +50,10 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
   const [appointmentReason, setAppointmentReason] = useState('');
   const [appointmentNotes, setAppointmentNotes] = useState('');
+  
+  // Time slots state
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   console.log("veterinarian",veterinarian)
 
@@ -80,7 +87,10 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
       if (!vetData || !clinicData) {
         Alert.alert('Error', 'Unable to find veterinarian or clinic information');
         navigation.goBack();
+        return;
       }
+
+      // Load available dates based on vet's schedule (will be done after state is set)
     } catch (error) {
       console.error('Error loading appointment data:', error);
       Alert.alert('Error', 'Failed to load appointment information');
@@ -90,33 +100,97 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
-  const getAvailableDates = (): Date[] => {
-    const dates: Date[] = [];
-    const today = new Date();
-    
-    // Generate next 14 days
-    for (let i = 1; i <= 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      
-      // Skip Sundays for non-emergency clinics
-      if (date.getDay() === 0 && !clinic?.services.some(s => s.toLowerCase().includes('emergency'))) {
-        continue;
+  // Load available dates based on veterinarian's schedule
+  const loadAvailableDates = async (vetId: string) => {
+    try {
+      setLoadingDates(true);
+      const today = new Date();
+      const dates: Date[] = [];
+
+      // Get veterinarian's schedule to check working days
+      let vetSchedule: WeeklySchedule | null = null;
+      try {
+        vetSchedule = await supabaseScheduleService.getVeterinarianSchedule(vetId);
+      } catch (error) {
+        console.error('Error fetching vet schedule:', error);
+        // Continue without schedule check if it fails
       }
       
-      dates.push(date);
+      // Generate next 14 days and filter by working schedule
+      for (let i = 1; i <= 14; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        
+        // Skip Sundays for non-emergency clinics (if no schedule data)
+        if (dayOfWeek === 0 && !clinic?.services.some(s => s.toLowerCase().includes('emergency'))) {
+          if (!vetSchedule) {
+            continue; // Skip if no schedule and non-emergency clinic
+          }
+        }
+        
+        // Check if vet is working on this day of week
+        if (vetSchedule && vetSchedule[dayOfWeek]) {
+          const daySchedule = vetSchedule[dayOfWeek];
+          if (!daySchedule.isWorking) {
+            // Vet is not working on this day - skip it (HIDE from appointment screen)
+            continue;
+          }
+        }
+        
+        dates.push(date);
+      }
+      
+      setAvailableDates(dates);
+    } catch (error) {
+      console.error('Error loading available dates:', error);
+      // Fallback to showing all dates if schedule check fails
+      const fallbackDates: Date[] = [];
+      const today = new Date();
+      for (let i = 1; i <= 14; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        if (date.getDay() !== 0 || clinic?.services.some(s => s.toLowerCase().includes('emergency'))) {
+          fallbackDates.push(date);
+        }
+      }
+      setAvailableDates(fallbackDates);
+    } finally {
+      setLoadingDates(false);
     }
-    
-    return dates;
   };
 
-  const getAvailableTimeSlots = (date: Date): TimeSlot[] => {
-    if (!veterinarian) return [];
+  useEffect(() => {
+    if (veterinarian && !loading) {
+      loadAvailableDates(veterinarian.id);
+    }
+  }, [veterinarian, clinic, loading]);
+
+  // Load available time slots from time_slots table when date is selected
+  const loadAvailableTimeSlots = async (date: Date) => {
+    if (!veterinarian) return;
     
-    // Filter available slots based on selected date
-    // Note: In the future, we can enhance this to check real appointment conflicts
-    return veterinarian.availableSlots.filter(slot => slot.isAvailable);
+    try {
+      setLoadingSlots(true);
+      const dateString = date.toISOString().split('T')[0];
+      const slots = await supabaseScheduleService.getAvailableTimeSlots(veterinarian.id, dateString);
+      setAvailableTimeSlots(slots);
+    } catch (error) {
+      console.error('Error loading time slots:', error);
+      Alert.alert('Error', 'Failed to load available time slots');
+      setAvailableTimeSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
   };
+
+  // Load slots when date is selected
+  useEffect(() => {
+    if (selectedDate && veterinarian) {
+      loadAvailableTimeSlots(selectedDate);
+      setSelectedTimeSlot(null); // Reset selected time slot when date changes
+    }
+  }, [selectedDate, veterinarian]);
 
   const handleStepNavigation = (step: BookingStep) => {
     setCurrentStep(step);
@@ -373,15 +447,29 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
   );
 
   const renderDateSelection = () => {
-    const availableDates = getAvailableDates();
-
     return (
       <View style={styles.stepContainer}>
         <Text style={styles.stepTitle}>Select Date</Text>
         <Text style={styles.stepSubtitle}>Choose your preferred appointment date</Text>
         
-        <ScrollView style={styles.dateList}>
-          {availableDates.map((date, index) => {
+        {loadingDates ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={{ marginTop: 10, color: '#6b7280' }}>Loading available dates...</Text>
+          </View>
+        ) : availableDates.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Ionicons name="calendar-outline" size={48} color="#9ca3af" />
+            <Text style={{ marginTop: 10, color: '#6b7280', fontSize: 16 }}>
+              No available dates
+            </Text>
+            <Text style={{ marginTop: 4, color: '#9ca3af', fontSize: 14 }}>
+              Please check back later or contact the clinic
+            </Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.dateList}>
+            {availableDates.map((date, index) => {
             const isSelected = selectedDate?.toDateString() === date.toDateString();
             const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
             const dateString = date.toLocaleDateString('en-US', { 
@@ -407,15 +495,14 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+          </ScrollView>
+        )}
       </View>
     );
   };
 
   const renderTimeSelection = () => {
     if (!selectedDate) return null;
-
-    const availableSlots = getAvailableTimeSlots(selectedDate);
 
     return (
       <View style={styles.stepContainer}>
@@ -424,27 +511,40 @@ const BookAppointmentScreen: React.FC<Props> = ({ route }) => {
           Available times for {selectedDate.toLocaleDateString()}
         </Text>
         
-        <View style={styles.timeGrid}>
-          {availableSlots.map((slot) => (
-            <TouchableOpacity
-              key={slot.id}
-              style={[
-                styles.timeSlot,
-                selectedTimeSlot?.id === slot.id && styles.timeSlotSelected,
-              ]}
-              onPress={() => setSelectedTimeSlot(slot)}
-            >
-              <Text
+        {loadingSlots ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={{ marginTop: 10, color: '#6b7280' }}>Loading available times...</Text>
+          </View>
+        ) : availableTimeSlots.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Ionicons name="calendar-outline" size={48} color="#9ca3af" />
+            <Text style={{ marginTop: 10, color: '#6b7280', fontSize: 16 }}>No available times</Text>
+            <Text style={{ marginTop: 4, color: '#9ca3af', fontSize: 14 }}>Please select a different date</Text>
+          </View>
+        ) : (
+          <View style={styles.timeGrid}>
+            {availableTimeSlots.map((slot) => (
+              <TouchableOpacity
+                key={slot.id}
                 style={[
-                  styles.timeText,
-                  selectedTimeSlot?.id === slot.id && styles.timeTextSelected,
+                  styles.timeSlot,
+                  selectedTimeSlot?.id === slot.id && styles.timeSlotSelected,
                 ]}
+                onPress={() => setSelectedTimeSlot(slot)}
               >
-                {slot.startTime}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.timeText,
+                    selectedTimeSlot?.id === slot.id && styles.timeTextSelected,
+                  ]}
+                >
+                  {slot.startTime}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
     );
   };

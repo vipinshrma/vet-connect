@@ -381,6 +381,31 @@ export class SupabaseScheduleService {
     }
   }
 
+  // Update specific slot fields (for manual vet management)
+  async updateTimeSlot(
+    slotId: string, 
+    updates: {
+      is_available?: boolean;
+      is_booked?: boolean;
+      slot_type?: 'regular' | 'break' | 'blocked';
+    }
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('time_slots')
+        .update(updates)
+        .eq('id', slotId);
+
+      if (error) {
+        console.error('Error updating time slot:', error);
+        throw new Error(`Failed to update time slot: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error in updateTimeSlot:', error);
+      throw error;
+    }
+  }
+
   // Get all time slots for a date (for schedule management view)
   async getAllTimeSlotsForDate(veterinarianId: string, date: string): Promise<TimeSlot[]> {
     try {
