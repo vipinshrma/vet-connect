@@ -1,20 +1,22 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import VetMapView from '../components/MapView';
-import { Clinic } from '../types';
-import { mockClinics, getEmergencyClinics } from '../data/mockClinics';
-import { getVeterinariansByClinic } from '../data/mockVeterinarians';
 import { supabase } from '../config/supabase';
+import { getEmergencyClinics, mockClinics } from '../data/mockClinics';
+import { getVeterinariansByClinic } from '../data/mockVeterinarians';
+import { Clinic } from '../types';
+import { openDirections, openLocationInMaps } from '../utils/mapsUtils';
 
 type RootStackParamList = {
   ClinicDetails: { clinicId: string };
@@ -235,6 +237,42 @@ const MapScreen: React.FC = () => {
               {veterinarians.length} veterinarian{veterinarians.length !== 1 ? 's' : ''}
             </Text>
 
+            {/* Map Actions */}
+            <View style={styles.clinicMapActions}>
+              <TouchableOpacity
+                style={[styles.mapActionButton, styles.locationButton]}
+                onPress={() => {
+                  if (selectedClinic && selectedClinic.coordinates) {
+                    openLocationInMaps(
+                      selectedClinic.coordinates.latitude,
+                      selectedClinic.coordinates.longitude,
+                      selectedClinic.name,
+                      selectedClinic.address
+                    );
+                  }
+                }}
+              >
+                <Ionicons name="location" size={16} color="#10b981" />
+                <Text style={styles.locationButtonText}>View Map</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.mapActionButton, styles.directionsButton]}
+                onPress={() => {
+                  if (selectedClinic && selectedClinic.coordinates) {
+                    openDirections(
+                      selectedClinic.coordinates.latitude,
+                      selectedClinic.coordinates.longitude,
+                      selectedClinic.name
+                    );
+                  }
+                }}
+              >
+                <Ionicons name="navigate" size={16} color="#3b82f6" />
+                <Text style={styles.directionsButtonText}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+
             <Text style={styles.tapHint}>Tap for details</Text>
           </TouchableOpacity>
 
@@ -446,6 +484,43 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  clinicMapActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  mapActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  locationButton: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  locationButtonText: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  directionsButton: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  directionsButtonText: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   vetCount: {
     fontSize: 14,

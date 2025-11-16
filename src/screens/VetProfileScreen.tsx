@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabaseClinicService } from '../services/supabaseClinicService';
 import { supabaseVetService } from '../services/supabaseVetService';
 import { Clinic, Review, RootStackParamList, Veterinarian } from '../types';
+import { openDirections, openLocationInMaps } from '../utils/mapsUtils';
 
 type VetProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'VetProfile'>;
 
@@ -112,12 +113,18 @@ const VetProfileScreen: React.FC<VetProfileScreenProps> = ({ route, navigation }
 
   const handleGetDirections = () => {
     if (clinic && clinic.coordinates) {
-      const url = `maps://app?daddr=${clinic.coordinates.latitude},${clinic.coordinates.longitude}`;
-      Linking.openURL(url).catch(() => {
-        // Fallback to Google Maps web
-        const webUrl = `https://maps.google.com/?q=${clinic.coordinates.latitude},${clinic.coordinates.longitude}`;
-        Linking.openURL(webUrl);
-      });
+      openDirections(clinic.coordinates.latitude, clinic.coordinates.longitude, clinic.name);
+    }
+  };
+
+  const handleOpenLocation = () => {
+    if (clinic && clinic.coordinates) {
+      openLocationInMaps(
+        clinic.coordinates.latitude,
+        clinic.coordinates.longitude,
+        clinic.name,
+        clinic.address
+      );
     }
   };
 

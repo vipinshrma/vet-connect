@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Clinic, Veterinarian } from '../types';
+import { openDirections, openLocationInMaps } from '../utils/mapsUtils';
 
 interface VetCardProps {
   veterinarian: Veterinarian;
@@ -41,6 +42,36 @@ const VetCard: React.FC<VetCardProps> = ({
       onBookAppointment();
     } else {
       Alert.alert('Book Appointment', 'Booking functionality will be available soon.');
+    }
+  };
+
+  const handleOpenLocation = () => {
+    if (clinic?.coordinates) {
+      openLocationInMaps(
+        clinic.coordinates.latitude,
+        clinic.coordinates.longitude,
+        clinic.name,
+        clinic.address
+      );
+    } else if (clinic?.latitude && clinic?.longitude) {
+      openLocationInMaps(
+        clinic.latitude,
+        clinic.longitude,
+        clinic.name,
+        clinic.address
+      );
+    } else {
+      Alert.alert('Location Unavailable', 'Location information is not available for this clinic.');
+    }
+  };
+
+  const handleDirections = () => {
+    if (clinic?.coordinates) {
+      openDirections(clinic.coordinates.latitude, clinic.coordinates.longitude, clinic.name);
+    } else if (clinic?.latitude && clinic?.longitude) {
+      openDirections(clinic.latitude, clinic.longitude, clinic.name);
+    } else {
+      Alert.alert('Location Unavailable', 'Location information is not available for this clinic.');
     }
   };
 
@@ -158,10 +189,11 @@ const VetCard: React.FC<VetCardProps> = ({
           )}
 
           {/* Action Buttons */}
-          <View className="flex-row">
+          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={handleBookAppointment}
-              className="flex-1 bg-blue-600 py-2.5 px-4 rounded-lg flex-row items-center justify-center mr-2"
+              className="flex-1 bg-blue-600 py-2.5 px-4 rounded-lg flex-row items-center justify-center"
+              style={{ minWidth: '48%' }}
               accessibilityRole="button"
               accessibilityLabel={`Book appointment with Dr. ${veterinarian.name}`}
             >
@@ -173,7 +205,8 @@ const VetCard: React.FC<VetCardProps> = ({
 
             <TouchableOpacity
               onPress={handleCall}
-              className="bg-green-600 py-2.5 px-4 rounded-lg flex-row items-center justify-center"
+              className="flex-1 bg-green-600 py-2.5 px-4 rounded-lg flex-row items-center justify-center"
+              style={{ minWidth: '48%' }}
               accessibilityRole="button"
               accessibilityLabel={`Call Dr. ${veterinarian.name} at ${veterinarian.phone}`}
             >
@@ -182,6 +215,36 @@ const VetCard: React.FC<VetCardProps> = ({
                 Call
               </Text>
             </TouchableOpacity>
+
+            {clinic && (clinic.coordinates || (clinic.latitude && clinic.longitude)) && (
+              <>
+                <TouchableOpacity
+                  onPress={handleOpenLocation}
+                  className="flex-1 bg-green-50 py-2.5 px-4 rounded-lg flex-row items-center justify-center border border-green-600"
+                  style={{ minWidth: '48%' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View location of ${clinic.name} in maps`}
+                >
+                  <Ionicons name="location" size={16} color="#10b981" />
+                  <Text className="text-green-700 font-medium ml-2 text-sm">
+                    Map
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleDirections}
+                  className="flex-1 bg-blue-50 py-2.5 px-4 rounded-lg flex-row items-center justify-center border border-blue-600"
+                  style={{ minWidth: '48%' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Get directions to ${clinic.name}`}
+                >
+                  <Ionicons name="navigate" size={16} color="#3b82f6" />
+                  <Text className="text-blue-700 font-medium ml-2 text-sm">
+                    Directions
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
