@@ -235,7 +235,6 @@ const HomeScreen: React.FC<HomeScreenProps> = () => {
           <Text 
             className="text-2xl font-inter-bold text-primary-700 mb-3"
             accessibilityRole="header"
-            accessibilityLevel={1}
           >
             Welcome to VetConnect
           </Text>
@@ -265,13 +264,12 @@ const HomeScreen: React.FC<HomeScreenProps> = () => {
         {/* Quick Actions */}
         <View 
           className="mb-8"
-          accessibilityRole="region"
+          accessible={true}
           accessibilityLabel="Quick actions"
         >
           <Text 
             className="text-lg font-inter-semibold text-secondary-700 mb-4"
             accessibilityRole="header"
-            accessibilityLevel={2}
           >
             {user?.userType === 'veterinarian' ? 'Veterinarian Tools' : 'Quick Actions'}
           </Text>
@@ -291,19 +289,17 @@ const HomeScreen: React.FC<HomeScreenProps> = () => {
         {/* Development Status */}
         <View 
           className="bg-green-50 p-6 rounded-xl mb-6"
-          accessibilityRole="region"
+          accessible={true}
           accessibilityLabel="Development status"
         >
           <Text 
             className="text-lg font-inter-semibold text-green-700 mb-3"
             accessibilityRole="header"
-            accessibilityLevel={2}
           >
             {user?.userType === 'veterinarian' ? 'Veterinarian Portal Active! 🩺' : 'Phase 4 Features Now Available! 🎉'}
           </Text>
           <Text 
             className="text-sm font-inter text-green-600 leading-6"
-            accessibilityRole="text"
           >
             {user?.userType === 'veterinarian' 
               ? 'Welcome to your veterinarian dashboard! Manage appointments, view patient records, and update your professional profile. More features coming soon!'

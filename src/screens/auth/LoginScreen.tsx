@@ -83,28 +83,46 @@ const LoginScreen: React.FC = () => {
               <Text 
                 className="text-2xl font-inter-bold text-primary-700 text-center mb-3"
                 accessibilityRole="header"
-                accessibilityLevel={1}
               >
                 Welcome Back
               </Text>
               <Text 
                 className="text-base font-inter text-secondary-600 text-center leading-6"
-                accessibilityRole="text"
               >
                 Sign in to your VetConnect account
               </Text>
               
               {/* Test Credentials */}
               <View className="bg-primary-50 p-4 rounded-xl mt-6">
-                <Text className="text-sm font-inter-semibold text-primary-700 text-center mb-2">
+                <Text className="text-sm font-inter-semibold text-primary-700 text-center mb-3">
                   Test Credentials
                 </Text>
-                <Text className="text-sm font-inter text-primary-600 text-center">
-                  Email: john@example.com
-                </Text>
-                <Text className="text-sm font-inter text-primary-600 text-center">
-                  Password: password123
-                </Text>
+                
+                {/* Pet Owner */}
+                <View className="mb-3">
+                  <Text className="text-xs font-inter-semibold text-primary-800 mb-1">
+                    Pet Owner:
+                  </Text>
+                  <Text className="text-sm font-inter text-primary-600">
+                    Email: hemantshrma801@gmail.com
+                  </Text>
+                  <Text className="text-sm font-inter text-primary-600">
+                    Password: Test@1234
+                  </Text>
+                </View>
+                
+                {/* Veterinarian */}
+                <View>
+                  <Text className="text-xs font-inter-semibold text-primary-800 mb-1">
+                    Veterinarian:
+                  </Text>
+                  <Text className="text-sm font-inter text-primary-600">
+                    Email: pakiko9332@fermiro.com
+                  </Text>
+                  <Text className="text-sm font-inter text-primary-600">
+                    Password: Test@1234
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -114,7 +132,6 @@ const LoginScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Email
                 </Text>
@@ -152,7 +169,6 @@ const LoginScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Password
                 </Text>

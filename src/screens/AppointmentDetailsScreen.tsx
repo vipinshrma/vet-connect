@@ -75,7 +75,11 @@ const AppointmentDetailsScreen: React.FC<Props> = ({ route }) => {
     );
   }
 
-  const dateStr = new Date(appointment.date).toLocaleDateString('en-US', {
+  // Handle both Date objects and ISO strings from Redux
+  const appointmentDate = appointment.date instanceof Date 
+    ? appointment.date 
+    : new Date(appointment.date as any);
+  const dateStr = appointmentDate.toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
   });
 
@@ -155,12 +159,12 @@ const AppointmentDetailsScreen: React.FC<Props> = ({ route }) => {
             {/* Time block split into two lines for better readability */}
             <View className="mt-3">
               <Text className="text-gray-700 leading-6">
-                {new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })},
+                {appointmentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })},
               </Text>
               <View className="flex-row items-center mt-1">
                 <Ionicons name="time-outline" size={16} color="#6b7280" />
                 <Text className="text-gray-700 ml-1 leading-6">
-                  {new Date(appointment.date).getFullYear()} • {appointment.timeSlot.startTime} - {appointment.timeSlot.endTime}
+                  {appointmentDate.getFullYear()} • {appointment.timeSlot.startTime} - {appointment.timeSlot.endTime}
                 </Text>
               </View>
             </View>

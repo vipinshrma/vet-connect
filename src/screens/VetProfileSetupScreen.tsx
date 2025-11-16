@@ -316,11 +316,17 @@ const VetProfileSetupScreen: React.FC<VetProfileSetupScreenProps> = ({ route }) 
         </View>
       </View>
 
-      <ScrollView 
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView 
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Welcome Card */}
         <View style={{
           backgroundColor: '#3b82f6',
@@ -822,6 +828,7 @@ const VetProfileSetupScreen: React.FC<VetProfileSetupScreenProps> = ({ route }) 
         {/* Bottom Spacing for Safe Area */}
         <View style={{ height: 16 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

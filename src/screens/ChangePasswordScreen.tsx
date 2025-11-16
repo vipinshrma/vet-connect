@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
@@ -157,8 +159,17 @@ const ChangePasswordScreen: React.FC = () => {
         <Text className="text-lg font-semibold text-gray-900">Change Password</Text>
       </View>
 
-      <ScrollView className="flex-1">
-        <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
           <Text className="text-sm text-gray-600 mb-4">
             Enter your current password and choose a new secure password.
           </Text>
@@ -304,6 +315,7 @@ const ChangePasswordScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -15,9 +17,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 
+import LocationSearch from '../components/LocationSearch';
 import { supabaseClinicService } from '../services/supabaseClinicService';
+import { supabaseVetService } from '../services/supabaseVetService';
 import { RootState } from '../store';
 import { Clinic, OpeningHours, RootStackParamList } from '../types';
+import { fetchPostalCode } from '../utils/accessibilityUtils';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -49,8 +54,10 @@ const MyClinicProfileScreen: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [hasManagePermission, setHasManagePermission] = useState(true);
+  const [isCreateMode, setIsCreateMode] = useState(false);
 
   const [formData, setFormData] = useState<ClinicFormData>({
     name: '',
@@ -144,6 +151,8 @@ const MyClinicProfileScreen: React.FC = () => {
 
       // Get veterinarian's clinic
       const vetClinic = await supabaseClinicService.getVeterinarianClinic(user.id);
+    
+
 
       if (vetClinic) {
         setClinic(vetClinic);
@@ -181,6 +190,112 @@ const MyClinicProfileScreen: React.FC = () => {
     } finally {
       console.log('Finished loading clinic data, setting loading to false');
       setLoading(false);
+    }
+  };
+
+  console.log("forms",formData)
+
+  const handleCreateClinic = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      Alert.alert('Error', 'Please enter clinic name');
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      Alert.alert('Error', 'Please enter clinic address');
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      Alert.alert('Error', 'Please enter clinic city');
+      return;
+    }
+
+    if (!formData.state.trim()) {
+      Alert.alert('Error', 'Please enter clinic state');
+      return;
+    }
+
+    if (!formData.zip_code.trim()) {
+      Alert.alert('Error', 'Please enter zip code');
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      Alert.alert('Error', 'Please enter phone number');
+      return;
+    }
+
+    try {
+      setCreating(true);
+
+      // Prepare clinic data in database format
+      const clinicData = {
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        zip_code: formData.zip_code.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim() || undefined,
+        website: formData.website.trim() || undefined,
+        latitude: formData.latitude ? Number(formData.latitude) : 0,
+        longitude: formData.longitude ? Number(formData.longitude) : 0,
+        services: formData.services || [],
+        photos: [],
+        rating: 0,
+        reviewCount: 0,
+        description: formData.description.trim() || undefined,
+        emergencyContact: formData.emergencyContact.trim() || undefined,
+        licenseNumber: formData.licenseNumber.trim() || undefined,
+        insuranceAccepted: formData.insuranceAccepted || [],
+        paymentMethods: formData.paymentMethods || ['cash', 'credit-card', 'debit-card'],
+        hours: formData.hours,
+        coordinates: {
+          latitude: formData.latitude ? Number(formData.latitude) : 0,
+          longitude: formData.longitude ? Number(formData.longitude) : 0,
+        },
+      };
+
+      // Create clinic
+      const newClinic = await supabaseClinicService.createClinic(clinicData);
+
+      // Update veterinarian's clinic_id
+      if (user?.id) {
+        await supabaseVetService.updateVeterinarianProfile(user.id, {
+          clinic_id: newClinic.id,
+        });
+      }
+
+      // Add clinic manager permission
+      if (user?.id) {
+        try {
+          await supabaseClinicService.addClinicManager(newClinic.id, user.id, 'owner');
+        } catch (managerError) {
+          console.warn('Failed to add clinic manager permission:', managerError);
+          // Continue even if manager permission fails
+        }
+      }
+
+      Alert.alert(
+        'Success',
+        'Clinic created successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setIsCreateMode(false);
+              loadClinicData(); // Reload to show the new clinic
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating clinic:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create clinic. Please try again.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -309,7 +424,7 @@ const MyClinicProfileScreen: React.FC = () => {
               value={formData.name}
               onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
               placeholder="Enter clinic name"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
 
@@ -324,7 +439,7 @@ const MyClinicProfileScreen: React.FC = () => {
               placeholder="Describe your clinic and approach to veterinary care"
               multiline
               numberOfLines={4}
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
 
@@ -337,7 +452,7 @@ const MyClinicProfileScreen: React.FC = () => {
               value={formData.licenseNumber}
               onChangeText={(text) => setFormData(prev => ({ ...prev, licenseNumber: text }))}
               placeholder="Veterinary license number"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
         </View>
@@ -354,31 +469,24 @@ const MyClinicProfileScreen: React.FC = () => {
             <Text className="text-sm font-inter-medium text-gray-700 mb-2">
               Address *
             </Text>
-            {/* <LocationSearch
-              value={formData?.address}
+            <LocationSearch
+              value={formData.address}
               onSelect={async (location) => {
-                // Get coordinates from selected location
                 const [longitude, latitude] = location.geometry.coordinates;
-
-                // Fetch postal code using coordinates
                 const zipCode = await fetchPostalCode(latitude, longitude);
-
-                // Extract city and state from location context
-                const city = location?.context.find(ctx => ctx.id.startsWith('place'))?.text || '';
-                const state = location?.context.find(ctx => ctx.id.startsWith('region'))?.text || '';
 
                 // Update form data with location details
                 setFormData(prev => ({
                   ...prev,
                   address: location.place_name,
-                  latitude: latitude,
-                  longitude: longitude,
-                  zip_code: zipCode || '',
-                  city: city,
-                  state: state
+                  city: location.context?.find((ctx: { id: string; text: string }) => ctx.id.startsWith('place'))?.text || prev.city || '',
+                  state: location.context?.find((ctx: { id: string; text: string }) => ctx.id.startsWith('region'))?.text || prev.state || '',
+                  zip_code: zipCode || prev.zip_code || '',
+                  latitude: latitude || prev.latitude || 0,
+                  longitude: longitude || prev.longitude || 0,
                 }));
               }}
-            /> */}
+            />
           </View>
 
           <View className="row">
@@ -391,7 +499,7 @@ const MyClinicProfileScreen: React.FC = () => {
                 value={formData.city}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, city: text }))}
                 placeholder="City"
-                editable={hasManagePermission}
+                editable={false}
               />
             </View>
 
@@ -404,7 +512,7 @@ const MyClinicProfileScreen: React.FC = () => {
                 value={formData.state}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, state: text }))}
                 placeholder="ST"
-                editable={hasManagePermission}
+                editable={false}
               />
             </View>
 
@@ -417,7 +525,7 @@ const MyClinicProfileScreen: React.FC = () => {
                 value={formData.zip_code}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, zip_code: text }))}
                 placeholder="12345"
-                editable={hasManagePermission}
+                editable={false}
               />
             </View>
           </View>
@@ -460,7 +568,7 @@ const MyClinicProfileScreen: React.FC = () => {
               onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
               placeholder="(555) 123-4567"
               keyboardType="phone-pad"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
 
@@ -474,7 +582,7 @@ const MyClinicProfileScreen: React.FC = () => {
               onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
               placeholder="contact@clinic.com"
               keyboardType="email-address"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
 
@@ -487,7 +595,7 @@ const MyClinicProfileScreen: React.FC = () => {
               value={formData.website}
               onChangeText={(text) => setFormData(prev => ({ ...prev, website: text }))}
               placeholder="https://www.clinic.com"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
 
@@ -501,7 +609,7 @@ const MyClinicProfileScreen: React.FC = () => {
               onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyContact: text }))}
               placeholder="After-hours emergency phone number"
               keyboardType="phone-pad"
-              editable={hasManagePermission}
+              editable={isCreateMode || hasManagePermission}
             />
           </View>
         </View>
@@ -522,8 +630,8 @@ const MyClinicProfileScreen: React.FC = () => {
               {paymentOptions.map((option) => (
                 <TouchableOpacity
                   key={option.key}
-                  onPress={() => hasManagePermission && togglePaymentMethod(option.key)}
-                  disabled={!hasManagePermission}
+                  onPress={() => (isCreateMode || hasManagePermission) && togglePaymentMethod(option.key)}
+                  disabled={!(isCreateMode || hasManagePermission)}
                   className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.paymentMethods.includes(option.key)
                       ? 'bg-blue-500'
                       : 'bg-gray-100'
@@ -548,8 +656,8 @@ const MyClinicProfileScreen: React.FC = () => {
               {insuranceOptions.map((insurance) => (
                 <TouchableOpacity
                   key={insurance}
-                  onPress={() => hasManagePermission && toggleInsurance(insurance)}
-                  disabled={!hasManagePermission}
+                  onPress={() => (isCreateMode || hasManagePermission) && toggleInsurance(insurance)}
+                  disabled={!(isCreateMode || hasManagePermission)}
                   className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.insuranceAccepted.includes(insurance)
                       ? 'bg-green-500'
                       : 'bg-gray-100'
@@ -592,11 +700,11 @@ const MyClinicProfileScreen: React.FC = () => {
             <Switch
               value={dayData.isOpen}
               onValueChange={(value) => {
-                if (hasManagePermission) {
+                if (isCreateMode || hasManagePermission) {
                   updateHours(day as keyof OpeningHours, 'isOpen', value);
                 }
               }}
-              disabled={!hasManagePermission}
+              disabled={!(isCreateMode || hasManagePermission)}
               trackColor={{ false: '#e5e7eb', true: '#3b82f6' }}
               thumbColor={dayData.isOpen ? '#ffffff' : '#f3f4f6'}
             />
@@ -607,12 +715,12 @@ const MyClinicProfileScreen: React.FC = () => {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 w-20 text-center mr-2"
                   value={dayData.openTime || ''}
                   onChangeText={(value) => {
-                    if (hasManagePermission) {
+                    if (isCreateMode || hasManagePermission) {
                       updateHours(day as keyof OpeningHours, 'openTime', value);
                     }
                   }}
                   placeholder="08:00"
-                  editable={hasManagePermission}
+                  editable={isCreateMode || hasManagePermission}
                   style={{ minHeight: 40 }} // Ensure minimum height
                 />
                 <Text className="text-gray-500 mx-2">to</Text>
@@ -620,12 +728,12 @@ const MyClinicProfileScreen: React.FC = () => {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 w-20 text-center"
                   value={dayData.closeTime || ''}
                   onChangeText={(value) => {
-                    if (hasManagePermission) {
+                    if (isCreateMode || hasManagePermission) {
                       updateHours(day as keyof OpeningHours, 'closeTime', value);
                     }
                   }}
                   placeholder="18:00"
-                  editable={hasManagePermission}
+                  editable={isCreateMode || hasManagePermission}
                   style={{ minHeight: 40 }} // Ensure minimum height
                 />
               </View>
@@ -651,8 +759,8 @@ const MyClinicProfileScreen: React.FC = () => {
           {availableServices.map((service) => (
             <TouchableOpacity
               key={service}
-              onPress={() => hasManagePermission && toggleService(service)}
-              disabled={!hasManagePermission}
+              onPress={() => (isCreateMode || hasManagePermission) && toggleService(service)}
+              disabled={!(isCreateMode || hasManagePermission)}
               className={`px-3 py-2 rounded-full mr-2 mb-2 ${formData.services.includes(service)
                   ? 'bg-blue-500'
                   : 'bg-gray-100'
@@ -697,16 +805,40 @@ const MyClinicProfileScreen: React.FC = () => {
     );
   }
 
-  if (!clinic) {
+  if (!clinic && !isCreateMode) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
-        <Ionicons name="business" size={64} color="#d1d5db" />
-        <Text className="text-xl font-inter-semibold text-gray-900 mt-4">
-          No Clinic Associated
-        </Text>
-        <Text className="text-gray-600 mt-2 text-center px-8">
-          You are not associated with any clinic yet. Contact your clinic administrator to be added.
-        </Text>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="bg-white px-4 py-3 border-b border-gray-100">
+          <View className="flex-row items-center">
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color="#374151" />
+            </TouchableOpacity>
+            <Text className="ml-3 text-lg font-inter-semibold text-gray-900">
+              My Clinic Profile
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+          <View className="items-center px-8 py-12">
+            <Ionicons name="business" size={64} color="#d1d5db" />
+            <Text className="text-xl font-inter-semibold text-gray-900 mt-4 text-center">
+              No Clinic Associated
+            </Text>
+            <Text className="text-gray-600 mt-2 text-center mb-8">
+              You are not associated with any clinic yet. Create your clinic profile to get started.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setIsCreateMode(true)}
+              className="bg-blue-500 px-6 py-3 rounded-lg flex-row items-center"
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text className="text-white font-inter-semibold ml-2">
+                Create Clinic Profile
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -725,7 +857,15 @@ const MyClinicProfileScreen: React.FC = () => {
             </Text>
           </View>
 
-          {hasManagePermission && (
+          {isCreateMode ? (
+            <TouchableOpacity
+              onPress={() => setIsCreateMode(false)}
+              className="px-4 py-2 rounded-lg flex-row items-center"
+            >
+              <Ionicons name="close" size={18} color="#374151" />
+              <Text className="text-gray-700 font-inter-semibold ml-1">Cancel</Text>
+            </TouchableOpacity>
+          ) : hasManagePermission && clinic ? (
             <TouchableOpacity
               onPress={handleSave}
               disabled={saving}
@@ -740,14 +880,18 @@ const MyClinicProfileScreen: React.FC = () => {
                 </>
               )}
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
-        {!hasManagePermission && (
-          <Text className="text-sm text-amber-600 mt-2">
+        {isCreateMode ? (
+          <Text className="text-sm text-blue-600 mt-2 px-4">
+            Fill in the information below to create your clinic profile
+          </Text>
+        ) : !hasManagePermission && clinic ? (
+          <Text className="text-sm text-amber-600 mt-2 px-4">
             Read-only: You don't have permission to edit this clinic profile
           </Text>
-        )}
+        ) : null}
       </View>
 
       {/* Tab Navigation */}
@@ -760,13 +904,47 @@ const MyClinicProfileScreen: React.FC = () => {
       </View>
 
       {/* Content */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="p-4">
-          {activeTab === 'info' && renderInfoTab()}
-          {activeTab === 'hours' && renderHoursTab()}
-          {activeTab === 'services' && renderServicesTab()}
-        </View>
-      </ScrollView>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          className="flex-1" 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          <View className="p-4">
+            {activeTab === 'info' && renderInfoTab()}
+            {activeTab === 'hours' && renderHoursTab()}
+            {activeTab === 'services' && renderServicesTab()}
+          </View>
+
+          {/* Create Button - Show at bottom when in create mode */}
+          {isCreateMode && (
+            <View className="px-4 pb-6 pt-4 bg-white border-t border-gray-200">
+              <TouchableOpacity
+                onPress={handleCreateClinic}
+                disabled={creating}
+                className="bg-blue-500 px-6 py-4 rounded-lg flex-row items-center justify-center"
+              >
+                {creating ? (
+                  <>
+                    <ActivityIndicator size="small" color="white" />
+                    <Text className="text-white font-inter-semibold ml-2">Creating...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="white" />
+                    <Text className="text-white font-inter-semibold ml-2">Create Clinic</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

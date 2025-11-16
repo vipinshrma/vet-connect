@@ -108,13 +108,11 @@ const ForgotPasswordScreen: React.FC = () => {
               <Text 
                 className="text-2xl font-inter-bold text-primary-700 text-center mb-3"
                 accessibilityRole="header"
-                accessibilityLevel={1}
               >
                 Reset Password
               </Text>
               <Text 
                 className="text-base font-inter text-secondary-600 text-center leading-6"
-                accessibilityRole="text"
               >
                 Enter your email address and we'll send you a link to reset your password
               </Text>
@@ -126,7 +124,6 @@ const ForgotPasswordScreen: React.FC = () => {
               <View>
                 <Text 
                   className="text-secondary-700 font-inter-medium mb-2"
-                  accessibilityRole="text"
                 >
                   Email Address
                 </Text>

@@ -11,6 +11,8 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
@@ -156,8 +158,17 @@ const EditUserProfileScreen: React.FC = () => {
         <Text className="text-lg font-semibold text-gray-900">Edit Profile</Text>
       </View>
 
-      <ScrollView className="flex-1">
-        <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          <View className="bg-white mx-4 mt-4 rounded-xl p-4 border border-gray-100">
           {/* Photo Section */}
           <View className="items-center mb-6">
             <View className="relative">
@@ -260,6 +271,7 @@ const EditUserProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
