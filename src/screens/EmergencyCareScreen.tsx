@@ -18,6 +18,7 @@ import { locationService } from '../services/locationService';
 import { supabaseClinicService } from '../services/supabaseClinicService';
 import { supabaseVetService } from '../services/supabaseVetService';
 import { Clinic, RootStackParamList, UserLocation, Veterinarian } from '../types';
+import { openDirections, openLocationInMaps } from '../utils/mapsUtils';
 
 type EmergencyCareNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -163,8 +164,11 @@ const EmergencyCareScreen: React.FC = () => {
   };
 
   const handleDirections = (clinic: Clinic) => {
-    const url = `https://maps.apple.com/?daddr=${clinic.latitude},${clinic.longitude}`;
-    Linking.openURL(url);
+    openDirections(clinic.latitude, clinic.longitude, clinic.name);
+  };
+
+  const handleOpenLocation = (clinic: Clinic) => {
+    openLocationInMaps(clinic.latitude, clinic.longitude, clinic.name, clinic.address);
   };
 
   const handleFindNearestClinic = () => {
@@ -297,6 +301,14 @@ const EmergencyCareScreen: React.FC = () => {
           >
             <Ionicons name="navigate" size={20} color="#3b82f6" />
             <Text style={styles.directionsButtonText}>Directions</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.locationButton]}
+            onPress={() => handleOpenLocation(clinic)}
+          >
+            <Ionicons name="location" size={20} color="#10b981" />
+            <Text style={styles.locationButtonText}>View Map</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -691,6 +703,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#3b82f6',
+  },
+  locationButton: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  locationButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
   },
   emptyState: {
     alignItems: 'center',

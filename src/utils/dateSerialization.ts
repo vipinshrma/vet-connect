@@ -145,3 +145,30 @@ export function toISOString(date: Date | string | undefined | null): string {
   return new Date().toISOString();
 }
 
+/**
+ * Check if an appointment is "new" (within a specified number of days from today)
+ * @param appointmentDate - The appointment date (Date object or ISO string)
+ * @param daysThreshold - Number of days threshold (default: 7)
+ * @returns true if appointment is within the threshold, false otherwise
+ */
+export function isNewAppointment(
+  appointmentDate: Date | string | undefined | null,
+  daysThreshold: number = 7
+): boolean {
+  if (!appointmentDate) return false;
+  
+  const appointment = toDate(appointmentDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const appointmentDateOnly = new Date(appointment);
+  appointmentDateOnly.setHours(0, 0, 0, 0);
+  
+  // Calculate difference in days
+  const diffTime = appointmentDateOnly.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Appointment is "new" if it's scheduled within the threshold (0 to daysThreshold days from today)
+  return diffDays >= 0 && diffDays <= daysThreshold;
+}
+

@@ -102,6 +102,41 @@ export const rescheduleAppointment = createAsyncThunk(
   }
 );
 
+// Accept appointment (for veterinarians)
+export const acceptAppointment = createAsyncThunk(
+  'appointments/accept',
+  async (params: { appointmentId: string; vetId: string }, { rejectWithValue }) => {
+    try {
+      const appointment = await supabaseAppointmentService.acceptAppointment(
+        params.appointmentId,
+        params.vetId
+      );
+      // Serialize dates before returning to Redux
+      return serializeAppointment(appointment);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Decline appointment (for veterinarians)
+export const declineAppointment = createAsyncThunk(
+  'appointments/decline',
+  async (params: { appointmentId: string; vetId: string; reason?: string }, { rejectWithValue }) => {
+    try {
+      const appointment = await supabaseAppointmentService.declineAppointment(
+        params.appointmentId,
+        params.vetId,
+        params.reason
+      );
+      // Serialize dates before returning to Redux
+      return serializeAppointment(appointment);
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const appointmentSlice = createSlice({
   name: 'appointments',
   initialState,
@@ -199,6 +234,46 @@ const appointmentSlice = createSlice({
         if (state.selectedAppointment?.id === action.payload.id) {
           state.selectedAppointment = serialized;
         }
+      })
+      // Accept appointment
+      .addCase(acceptAppointment.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(acceptAppointment.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Payload is already serialized in the thunk
+        const updatedAppointment = action.payload;
+        state.appointments = state.appointments.map(apt =>
+          apt.id === updatedAppointment.id ? updatedAppointment : apt
+        );
+        if (state.selectedAppointment?.id === updatedAppointment.id) {
+          state.selectedAppointment = updatedAppointment;
+        }
+      })
+      .addCase(acceptAppointment.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Decline appointment
+      .addCase(declineAppointment.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(declineAppointment.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Payload is already serialized in the thunk
+        const updatedAppointment = action.payload;
+        state.appointments = state.appointments.map(apt =>
+          apt.id === updatedAppointment.id ? updatedAppointment : apt
+        );
+        if (state.selectedAppointment?.id === updatedAppointment.id) {
+          state.selectedAppointment = updatedAppointment;
+        }
+      })
+      .addCase(declineAppointment.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });
